@@ -62,7 +62,7 @@
 PRINT_CONFIG_VAR(OPTICFLOW_FOV_W)
 
 #ifndef OPTICFLOW_FOV_H
-#define OPTICFLOW_FOV_H 0.67020643276
+#define OPTICFLOW_FOV_H 0.67020643276 //0.78 rad / 240 pixels
 #endif
 PRINT_CONFIG_VAR(OPTICFLOW_FOV_H)
 
@@ -163,6 +163,21 @@ struct MedianFilterInt vel_x_filt, vel_y_filt;
 /* Functions only used here */
 static uint32_t timeval_diff(struct timeval *starttime, struct timeval *finishtime);
 static int cmp_flow(const void *a, const void *b);
+
+//DEBUG PRINT log file
+
+//LK method
+float flow_lk_x = 0;
+float flow_lk_y = 0;
+float diff_flow_x = 0;
+float diff_flow_y = 0;
+
+//hist method
+float flow_hist_x = 0;
+float flow_hist_y = 0;
+float der_temp_x = 0;
+float der_temp_y = 0;
+
 
 
 
@@ -344,8 +359,8 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   }
 
   // Flow Derotation
-  float diff_flow_x = 0;
-  float diff_flow_y = 0;
+  //float diff_flow_x = 0;
+  //float diff_flow_y = 0;
 
   /*// Flow Derotation TODO:
   float diff_flow_x = (state->phi - opticflow->prev_phi) * img->w / OPTICFLOW_FOV_W;
@@ -358,9 +373,15 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
                   OPTICFLOW_FOV_H;// * img->h / OPTICFLOW_FOV_H;
   }
 
+  flow_lk_x = result->flow_x;//debug
+  flow_lk_y = result->flow_y;//
+  
   result->flow_der_x = result->flow_x - diff_flow_x * opticflow->subpixel_factor;
   result->flow_der_y = result->flow_y - diff_flow_y * opticflow->subpixel_factor;
   opticflow->prev_rates = state->rates;
+  
+  diff_flow_x *= opticflow->subpixel_factor;
+  diff_flow_y *= opticflow->subpixel_factor;
 
   // Velocity calculation
   // Right now this formula is under assumption that the flow only exist in the center axis of the camera.
@@ -463,18 +484,45 @@ void calc_edgeflow_tot(struct opticflow_t *opticflow, struct opticflow_state_t *
   //Select edge histogram from the previous frame nr
   int32_t *prev_edge_histogram_x = edge_hist[previous_frame_nr[0]].x;
   int32_t *prev_edge_histogram_y = edge_hist[previous_frame_nr[1]].y;
+  
+  //////////////////////////TEMP 
+   /*Estimate fps per direction
+   * This is the fps with adaptive horizon for subpixel flow, which is not similar
+   * to the loop speed of the algorithm. The faster the quadcopter flies
+   * the higher it becomes
+  */
+  float fps_x = 0;
+  float fps_y = 0;
+  float time_diff_x = (float)(timeval_diff(&edge_hist[previous_frame_nr[0]].frame_time, &img->ts)) / 1000.;
+  float time_diff_y = (float)(timeval_diff(&edge_hist[previous_frame_nr[1]].frame_time, &img->ts)) / 1000.;
+  fps_x = 1 / (time_diff_x);
+  fps_y = 1 / (time_diff_y);
+
+  result->fps = fps_x;
 
   //Calculate the corresponding derotation of the two frames
   int16_t der_shift_x = 0;
   int16_t der_shift_y = 0;
+  //float der_temp_x = 0;
+  //float der_temp_y = 0;
 
   if (opticflow->derotation) {
-    der_shift_x = (int16_t)((edge_hist[previous_frame_nr[0]].rates.p + edge_hist[current_frame_nr].rates.p) / 2.0f /
-                            result->fps *
-                            (float)img->w / (OPTICFLOW_FOV_W));
-    der_shift_y = (int16_t)((edge_hist[previous_frame_nr[1]].rates.q + edge_hist[current_frame_nr].rates.q) / 2.0f /
+    
+    //der_shift_x = -(int16_t)((edge_hist[previous_frame_nr[0]].rates.p + edge_hist[current_frame_nr].rates.p) / 2.0f /
+                      //      result->fps *
+                          //  (float)img->w / (OPTICFLOW_FOV_W));
+               //(((
+    der_temp_x = ((((edge_hist[previous_frame_nr[0]].rates.p + edge_hist[current_frame_nr].rates.p) / 2.0f) /
+                            result->fps) *
+                            ((float)img->w / (OPTICFLOW_FOV_W)))*(float)RES;
+    der_temp_y = ((((edge_hist[previous_frame_nr[1]].rates.q + edge_hist[current_frame_nr].rates.q) / 2.0f) /
+                            result->fps) *
+                            ((float)img->h / (OPTICFLOW_FOV_H)))*(float)RES;
+   // der_shift_x = (int16_t)der_temp_x;
+    /*der_shift_y = (int16_t)((edge_hist[previous_frame_nr[1]].rates.q + edge_hist[current_frame_nr].rates.q) / 2.0f /
                             result->fps *
                             (float)img->h / (OPTICFLOW_FOV_H));
+                            */
   }
 
   // Estimate pixel wise displacement of the edge histograms for x and y direction
@@ -503,18 +551,21 @@ void calc_edgeflow_tot(struct opticflow_t *opticflow, struct opticflow_state_t *
   edgeflow.flow_x = -1 * edgeflow.flow_x;
   edgeflow.flow_y = -1 * edgeflow.flow_y;
 
-  result->flow_x = (int16_t)edgeflow.flow_x / previous_frame_offset[0];
+  result->flow_x = ((int16_t)edgeflow.flow_x / previous_frame_offset[0]);
   result->flow_y = (int16_t)edgeflow.flow_y / previous_frame_offset[1];
+  
+  flow_hist_x = result->flow_x;
+  flow_hist_y = result->flow_y;
 
   //Fill up the results optic flow to be on par with LK_fast9
-  result->flow_der_x =  result->flow_x;
-  result->flow_der_y =  result->flow_y;
+  result->flow_der_x = result->flow_x-der_temp_x;// der_shift_x;//img->w;//240//der_shift_x;//result->flow_x;
+  result->flow_der_y =  der_shift_y;//img->h;//240//der_shift_y;//result->flow_y;
   result->corner_cnt = getAmountPeaks(edge_hist_x, 500 , img->w);
   result->tracked_cnt = getAmountPeaks(edge_hist_x, 500 , img->w);
   result->divergence = (float)edgeflow.flow_x / RES;
-  result->div_size = 0.0f;
+  result->div_size = edge_hist[current_frame_nr].rates.p;//0.0f;
   result->noise_measurement = 0.0f;
-  result->surface_roughness = 0.0f;
+  result->surface_roughness = der_temp_x;//edge_hist[previous_frame_nr[0]].rates.q;//0.0f;
 
   //......................Calculating VELOCITY ..................... //
 
@@ -523,6 +574,7 @@ void calc_edgeflow_tot(struct opticflow_t *opticflow, struct opticflow_state_t *
    * to the loop speed of the algorithm. The faster the quadcopter flies
    * the higher it becomes
   */
+  /*
   float fps_x = 0;
   float fps_y = 0;
   float time_diff_x = (float)(timeval_diff(&edge_hist[previous_frame_nr[0]].frame_time, &img->ts)) / 1000.;
@@ -531,7 +583,7 @@ void calc_edgeflow_tot(struct opticflow_t *opticflow, struct opticflow_state_t *
   fps_y = 1 / (time_diff_y);
 
   result->fps = fps_x;
-
+*/
   // Calculate velocity
   float vel_x = edgeflow.flow_x * fps_x * state->agl * OPTICFLOW_FOV_W / (img->w * RES);
   float vel_y = edgeflow.flow_y * fps_y * state->agl * OPTICFLOW_FOV_H / (img->h * RES);

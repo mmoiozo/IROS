@@ -33,6 +33,8 @@
 #include "firmwares/rotorcraft/stabilization.h"
 #include "state.h"
 
+#include "modules/computer_vision/opticflow/opticflow_calculator.h"
+
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
 #define FILE_LOGGER_PATH /data/video/usb
@@ -61,7 +63,7 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
+      "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz,lk_flow_x,lk_flow_y,lk_der_x,lk_der_y,hist_flow_x,hist_flow_y,hist_der_x,hist_der_y\n"
     );
   }
 }
@@ -83,8 +85,10 @@ void file_logger_periodic(void)
   }
   static uint32_t counter;
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
+  
+  //lk_flow_x,lk_flow_y,lk_der_x,lk_der_y,hist_flow_x,hist_flow_y,hist_der_x,hist_der_y
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f\n",
           counter,
           imu.gyro_unscaled.p,
           imu.gyro_unscaled.q,
@@ -102,7 +106,15 @@ void file_logger_periodic(void)
           quat->qi,
           quat->qx,
           quat->qy,
-          quat->qz
+          quat->qz,
+	  flow_lk_x,
+	  flow_lk_y,
+	  diff_flow_x,
+	  diff_flow_y,
+	  flow_hist_x,
+	  flow_hist_y,
+	  der_temp_x,
+	  der_temp_y
          );
   counter++;
 }

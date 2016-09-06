@@ -37,6 +37,21 @@
 #include "lib/vision/image.h"
 #include "lib/v4l/v4l2.h"
 
+//debugging
+//LK method
+float flow_lk_x;
+float flow_lk_y;
+float diff_flow_x;
+float diff_flow_y;
+
+
+//hist method
+float flow_hist_x;
+float flow_hist_y;
+float der_temp_x;
+float der_temp_y;
+
+
 struct opticflow_t {
   bool got_first_img;             ///< If we got a image to work with
   bool just_switched_method;
