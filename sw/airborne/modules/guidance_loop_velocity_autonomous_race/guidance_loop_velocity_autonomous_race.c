@@ -29,6 +29,7 @@
 #include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "firmwares/rotorcraft/stabilization/stabilization_attitude.h"
 //#include "firmwares/rotorcraft/stabilization/stabilization_attitude_euler_float.h"
+#include "modules/flight_plan_in_guided_mode/flight_plan_in_guided_mode.h"
 
 
 #include <stdio.h>
@@ -185,6 +186,13 @@ void guidance_loop_pid()
     theta_desired_f = c_psi * cmd_f.x - s_psi * cmd_f.y;
     guidance_module.cmd.phi = BFP_OF_REAL(phi_desired_f, INT32_ANGLE_FRAC);
     guidance_module.cmd.theta = BFP_OF_REAL(theta_desired_f, INT32_ANGLE_FRAC);
+    if (primitive_in_use == SET_ATTITUDE)
+    {
+      guidance_module.err_vx_int = 0;
+      guidance_module.err_vy_int = 0;
+      guidance_module.cmd.phi = BFP_OF_REAL(phi_set_attitude, INT32_ANGLE_FRAC);
+      guidance_module.cmd.theta = BFP_OF_REAL(theta_set_attitude, INT32_ANGLE_FRAC);
+    }
     /* Bound the roll and pitch commands */
     BoundAbs(guidance_module.cmd.phi, CMD_OF_SAT);
     BoundAbs(guidance_module.cmd.theta, CMD_OF_SAT);

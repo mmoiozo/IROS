@@ -53,7 +53,8 @@ float heading;
 bool altitude_is_arrived;
 bool adjust_position_mask;
 int primitive_in_use; // This variable is used for showing which primitive is used now;
-
+float phi_set_attitude;
+float theta_set_attitude;
 
 
 void flight_plan_in_guided_mode_init() {
@@ -242,4 +243,22 @@ void adjust_position(float derta_altitude){
         go_left_right(-0.1);
 	printf("left\n");
     }
+}
+
+void set_attitude(float theta,float phi)
+{
+    if(primitive_in_use != SET_ATTITUDE){
+        primitive_in_use = SET_ATTITUDE;
+        counter_primitive = 0;
+        time_primitive = 0;
+        guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
+        guidance_v_mode_changed(GUIDANCE_V_MODE_HOVER);
+	psi1 = stateGetNedToBodyEulers_f()->psi;
+    }
+    phi_set_attitude = phi;
+	theta_set_attitude = theta;
+        z0 = stateGetPositionNed_f()->z;
+        guidance_v_set_guided_z(z0);
+        
+        guidance_loop_set_heading(psi1);
 }

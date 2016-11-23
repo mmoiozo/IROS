@@ -54,15 +54,29 @@ void command_run() {
         return;
     }
 
-    if (fitness < 8)
-    {
-     adjust_position(measured_z_gate);
-    }
-    else
-    {
-     // hover();
-    }
-    
+//     if (fitness < 8)
+//     {
+//      adjust_position(measured_z_gate);
+//     }
+//     else
+//     {
+//      // hover();
+//     }
+
+if (time_autopilot_mode<5)
+	   hover();
+   //else if(time_autopilot_mode<7.5)
+     //go_straight(0.8); //fly_straight 2 m
+   //else if(time_autopilot_mode<9)
+     //arc(1.5,4,2.4);
+   else if(time_autopilot_mode<10.0)
+	 
+    set_attitude(0,5/180.0*3.14);
+   
+   else if(time_autopilot_mode<15) 
+     set_attitude(0,-5/180.0*3.14);
+   else 
+     hover();
     previous_mode = current_mode;
 }
 

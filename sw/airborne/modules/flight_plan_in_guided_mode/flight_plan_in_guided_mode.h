@@ -36,7 +36,7 @@
 #define SET_VELOCITY_TEST        6
 #define GO_UP_DOWN               7
 #define ADJUST_POSITION          8
-
+#define SET_ATTITUDE             9
 
  extern int primitive_in_use;
  extern bool adjust_position_mask;
@@ -50,6 +50,10 @@
  extern void set_velocity_test(float vx_earth_t,float vy_earth_t);
  extern void go_up_down(float derta_altitude);
  extern void adjust_position(float derta_altitude);
+ extern void set_attitude(float theta,float phi);
+ 
+ extern float phi_set_attitude;
+ extern float theta_set_attitude;
 
 //void set_velocity_test(float vx_earth_t,float vy_earth_t,float planned_time);
 

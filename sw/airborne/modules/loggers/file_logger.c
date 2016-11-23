@@ -32,12 +32,21 @@
 #include "subsystems/imu.h"
 #include "firmwares/rotorcraft/stabilization.h"
 #include "state.h"
-#include "modules/computer_vision/opticflow/opticflow_calculator.h"
+#include "modules/guidance_loop_velocity_autonomous_race/guidance_loop_velocity_autonomous_race.h"
+#include "firmwares/rotorcraft/stabilization/stabilization_attitude_quat_int.h"
+#include "subsystems/electrical.h"
+#include "modules/computer_vision/video_capture.h"
 
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
 #define FILE_LOGGER_PATH /data/video/usb
 #endif
+
+struct timeval stop_time, start_time;
+//float time_stamp_1 = 0;
+float prev_ss_time = 0;
+int take_shot = 0;
+int shots = 0;
 
 /** The file pointer */
 static FILE *file_logger = NULL;
@@ -45,6 +54,7 @@ static FILE *file_logger = NULL;
 /** Start the file logger and open a new file */
 void file_logger_start(void)
 {
+  shots = 0;
   uint32_t counter = 0;
   char filename[512];
 
@@ -58,13 +68,16 @@ void file_logger_start(void)
   }
 
   file_logger = fopen(filename, "w");
+  
+  //start clock
+  gettimeofday(&start_time, 0);
 
-  if (file_logger != NULL) {
+/*  if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,x,y,z,v_x,v_y,v_z,phi,theta,psi\n"
+      //"counter,x,y,z,v_x,v_y,v_z,phi,theta,psi,phi_int,theta_int,psi_int\n"
     );
-  }
+  }*/
 }
 
 /** Stop the logger an nicely close the file */
@@ -82,23 +95,88 @@ void file_logger_periodic(void)
   if (file_logger == NULL) {
     return;
   }
+  //timing
+  gettimeofday(&stop_time, 0);
+  double curr_time = (double)(stop_time.tv_sec + stop_time.tv_usec / 1000000.0);
+  double time_stamp = curr_time - (double)(start_time.tv_sec + start_time.tv_usec / 1000000.0);
+
+
+   if((time_stamp - prev_ss_time)>0.2)//for 5hz
+   {
+     //video_capture_shoot();
+     prev_ss_time = time_stamp;
+     take_shot = shots;
+     shots +=1;
+   }
+   else
+   {
+     take_shot = 0;
+   }
+  
   static uint32_t counter;
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
-//flow_v_x,flow_v_y,body_v_x,body_v_y
-  fprintf(file_logger, "%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d\n",
+//flow_v_x,flow_v_y,body_v_x,body_v_y                                                    //%f,%f,%f,
+  fprintf(file_logger, "%d, %f, %d,%d,%d,%d,%d,%d,%d,%d,%d, %f,%f,%f, %f,%f,%f,%f,%f,%f, %d,  %f,%f,%f, %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
           counter,
-          stateGetPositionNed_f()->x,
+	  
+	  time_stamp,
+	  
+	  imu.gyro.p,//right hand rule
+          imu.gyro.q,
+          imu.gyro.r,
+          imu.accel.x,//right hand rule (times -1 for gravity vector)
+          imu.accel.y,
+          imu.accel.z,
+          imu.mag.x,//not tested
+          imu.mag.y,
+          imu.mag.z,
+	  
+          stateGetNedToBodyEulers_f()->phi,// rad positive roll to the right
+          stateGetNedToBodyEulers_f()->theta,//negative pitch forward
+          stateGetNedToBodyEulers_f()->psi,//negative counter clockwise
+	  
+	  stateGetPositionNed_f()->x,//as in debug msg ned?
           stateGetPositionNed_f()->y,
           stateGetPositionNed_f()->z,
-          stateGetSpeedNed_f()->x,
+          stateGetSpeedNed_f()->x,//as in debug msg?
           stateGetSpeedNed_f()->y,
           stateGetSpeedNed_f()->z,
-          stateGetNedToBodyEulers_f()->phi,
-          stateGetNedToBodyEulers_f()->theta,
-          stateGetNedToBodyEulers_f()->psi,
-          stateGetNedToBodyEulers_i()->phi,
-          stateGetNedToBodyEulers_i()->theta,
-          stateGetNedToBodyEulers_i()->psi
+  
+	  stabilization_cmd[COMMAND_THRUST],//
+// 	  stabilization_cmd[COMMAND_ROLL],
+// 	  stabilization_cmd[COMMAND_PITCH],
+// 	  stabilization_cmd[COMMAND_YAW],
+	  
+	  ANGLE_FLOAT_OF_BFP(stab_att_sp_euler.phi),
+	  ANGLE_FLOAT_OF_BFP(stab_att_sp_euler.theta),
+	  ANGLE_FLOAT_OF_BFP(stab_att_sp_euler.psi),
+	  
+// 	  stab_att_sp_euler.phi,
+// 	  stab_att_sp_euler.theta,
+// 	  stab_att_sp_euler.psi,
+	  
+	  electrical.vsupply,//voltage in decivolts check
+	  electrical.current,//current in milliamps check? per motor or total?
+	  
+	  actuators_bebop.rpm_ref[0],//rpm of lf tracking seems to work, verify with matlab
+	  actuators_bebop.rpm_ref[1],//rf
+	  actuators_bebop.rpm_ref[2],//rb
+	  actuators_bebop.rpm_ref[3],//lb
+	  actuators_bebop.rpm_obs[0],//lf
+	  actuators_bebop.rpm_obs[1],//rf
+	  actuators_bebop.rpm_obs[2],//rb
+	  actuators_bebop.rpm_obs[3],//lb
+	  shots
          );
   counter++;
 }
+
+//needed
+//time
+//gyro pqr,
+//acc xyz,
+// sonar,
+// battery,
+// current,
+// prop rpm,
+// take_shot,//at 5 hz
