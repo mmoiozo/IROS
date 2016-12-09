@@ -299,7 +299,14 @@ void guidance_v_run(bool in_flight)
 
     case GUIDANCE_V_MODE_RC_DIRECT:
       guidance_v_z_sp = stateGetPositionNed_i()->z; // for display only
-      stabilization_cmd[COMMAND_THRUST] = guidance_v_rc_delta_t;
+      if(autopilot_mode == AP_MODE_RC_DIRECT)
+      {
+	stabilization_cmd[COMMAND_THRUST] = 0;
+      }
+      else
+      {
+	stabilization_cmd[COMMAND_THRUST] = guidance_v_rc_delta_t;
+      }
       break;
 
     case GUIDANCE_V_MODE_RC_CLIMB:

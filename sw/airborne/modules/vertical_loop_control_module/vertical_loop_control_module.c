@@ -46,11 +46,12 @@ void guidance_v_module_run(bool in_flight)
     //printf("Vertical control module is called!\n");
     if (replay == 1)
     {
-        //printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA %d\n",cmd_thrust);
+        printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA %d\n",cmd_thrust);
         stabilization_cmd[COMMAND_THRUST] = cmd_thrust ;
     }
     else
     {
+      printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA %d\n",cmd_thrust);
         stabilization_cmd[COMMAND_THRUST] = 5100; //5200
     }
 
