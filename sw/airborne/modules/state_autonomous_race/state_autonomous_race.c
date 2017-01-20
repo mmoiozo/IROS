@@ -28,9 +28,8 @@
 #include "firmwares/rotorcraft/guidance/guidance_v.h"
 #include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "firmwares/rotorcraft/stabilization/stabilization_attitude.h"
+#include "modules/kalman_filter/kalman_filter.h"
 
-//void state_autonomous_race_init();
-//void display_lower_state();
 
 
 
@@ -39,7 +38,8 @@ struct state_autonomous_race states_race;
 void display_upper_state(void);
 void display_lower_state(void);
 void display_guidance_mode(void);
-
+void debug_information(void);
+/*void display_matrix(double a[][3],int n);*/
 
 void state_autonomous_race_init() {
     states_race.gate_counter = 0;
@@ -53,23 +53,18 @@ void state_autonomous_race_init() {
 
 void display_states()
 {
-    //printf("Thrust is %d\n",stabilization_cmd[COMMAND_THRUST]);
     if (autopilot_mode != AP_MODE_MODULE)
         return;
-   // printf("gate_counter is %d \n",states_race.gate_counter);
 
     display_upper_state();
     display_lower_state();
     printf("\n");
     printf("\n");
     printf("\n");
-   // display_guidance_mode();
     printf("\n");
     printf("\n");
     printf("\n");
-   // printf("Time in primitve is %f\n",time_primitive);
-
-
+	debug_information();
 }
 
 void display_lower_state()
@@ -111,14 +106,26 @@ void display_lower_state()
         case PREPARE_CM:
             printf("It is in PREPARE\n");
             break;
-        case REPLAY_CM:
-            printf("It is in REPLAY\n");
-            break;
+        /*case REPLAY_CM:*/
+            /*printf("It is in REPLAY\n");*/
+            /*break;*/
         case APPROACH_GATE_CM:
             printf("It is in APPROACH_GATE\n");
             break;
+        case FLIGHT_TEST_PHI1_CM:
+            printf("It is in FLIGHT_TEST_PHI1\n");
+            break;
+        case FLIGHT_TEST_PHI2_CM:
+            printf("It is in FLIGHT_TEST_PHI2\n");
+            break;
+        case FLIGHT_TEST_THETA1_CM:
+            printf("It is in FLIGHT_TEST_THETA\n");
+            break;
+		case FLIGHT_TEST_THETA2_CM:
+            printf("It is in FLIGHT_TEST_THETA2\n");
+            break;
         default:
-            printf("It is in APPROACH_GATE\n");
+            printf("It is in nothing\n");
             break;
 
     }
@@ -141,7 +148,7 @@ void display_upper_state()
             printf("It is in FOURTH_PART\n");
             break;
         default:
-            printf("It is in APPROACH_GATE\n");
+            printf("It is in NOTHING\n");
             break;
     }
 };
@@ -174,3 +181,24 @@ void display_guidance_mode()
             break;
     }
 }
+
+
+void debug_information()
+{
+		printf("THETA_BIAS ====== %f\n",theta_bias/3.14*180);
+		printf("PHI_BIAS ====== %f\n",phi_bias/3.14*180);
+		printf("ax_BIAS ====== %f\n",accel_bias.ax*0.0009766);
+		printf("ay_BIAS ====== %f\n",accel_bias.ay*0.0009766);
+		printf("az_BIAS ====== %f\n",accel_bias.az*0.0009766);
+		printf("SAMPLE_POINTER ====== %d\n",sample_pointer);
+    printf("\n");
+	printf("\n");
+    printf("\n");
+		printf("THETA_HOVER ====== %f\n",theta_hover/3.14*180);
+		printf("PHI_HOVER ====== %f\n",phi_hover/3.14*180);
+		printf("ax_HOVER ====== %f\n",accel_hover.ax*0.0009766);
+		printf("ay_HOVER ====== %f\n",accel_hover.ay*0.0009766);
+		printf("az_HOVER ====== %f\n",accel_hover.az*0.0009766);
+		printf("SAMPLE_POINTER ====== %d\n",sample_pointer);
+}
+

@@ -24,6 +24,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "flight_plan_in_guided_mode.h"
 #include "firmwares/rotorcraft/autopilot.h"
 #include "modules/flight_plan_in_guided_mode/flight_plan_in_guided_mode.h"
@@ -36,6 +37,8 @@
 #include "modules/state_autonomous_race/state_autonomous_race.h"
 #include "modules/computer_vision/snake_gate_detection.h"
 #include "subsystems/ins.h"
+#include "modules/kalman_filter/kalman_filter.h"
+#include "subsystems/imu.h"
 
 
 
@@ -65,9 +68,16 @@ float velocity_body_y;
 float velocity_earth_x;
 float velocity_earth_y;
 float init_heading;
+float previous_desired_theta = 9999;
+float previous_desired_phi = 9999;
 
+int sample_pointer;
+float sample_time;
 bool arc_is_finished = 0;
-
+double sum_theta;
+double sum_phi;
+struct acceleration sum_accel;
+bool flag_calcualte_ave_atti = FALSE;
 
 int primitive_in_use; // This variable is used for showing which primitive is used now;
 
@@ -77,7 +87,6 @@ float current_x_gate = 0;
 float current_y_gate = 0;
 float current_z_gate = 0;
 
-#define Z_BIAS 0.2//was .2
 
 void flight_plan_in_guided_mode_init() {
     primitive_in_use = NO_PRIMITIVE;
@@ -102,13 +111,8 @@ void hover()
         primitive_in_use = HOVER;
         counter_primitive = 0;
         time_primitive = 0;
-        guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
+        guidance_h_mode_changed(GUIDANCE_H_MODE_HOVER);
         guidance_v_mode_changed(GUIDANCE_V_MODE_HOVER);
-        guidance_loop_set_velocity(0,0);
-        z0 = stateGetPositionNed_f()->z;
-        guidance_v_set_guided_z(z0);
-        psi1 = stateGetNedToBodyEulers_f()->psi;
-        guidance_loop_set_heading(psi1);
     }
 }
 
@@ -275,44 +279,6 @@ void go_up_down(float altitude){
 
 
 void adjust_position(float derta_altitude){
-
-    // set z
-    if (primitive_in_use != ADJUST_POSITION)
-    {
-        primitive_in_use = ADJUST_POSITION;
-    }
-
-        guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
-        guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
-        z0 = stateGetPositionNed_f()->z;
-	float z_setpoint = derta_altitude+Z_BIAS; //was z0 - derta_altitude+Z_BIAS;
-	if (z_setpoint>-1)
-	  z_setpoint = -1;
-	else if (z_setpoint<-3.9)
-	  z_setpoint = -3.9;
-        guidance_v_set_guided_z(z_setpoint);
-        psi0 = stateGetNedToBodyEulers_f()->psi;
-
-    // set vx and vy
-    if (fabs(current_x_gate)<0.1)
-        velocity_body_y = 0;
-    else if (current_x_gate>0.1)
-        velocity_body_y = p_x_position * current_x_gate;
-    else if (current_x_gate<-0.1)
-        velocity_body_y = p_x_position * current_x_gate;
-
-    if (fabs(current_y_gate-Y_ADJUST_POSITION)<0.2)
-        velocity_body_x = 0;
-    else if (current_y_gate-Y_ADJUST_POSITION>0.2)
-        velocity_body_x = 0.5;
-    else if (current_y_gate-Y_ADJUST_POSITION<-0.2)
-        velocity_body_x =  -0.5;
-
-    velocity_earth_x = cosf(psi0)*velocity_body_x - sinf(psi0)*velocity_body_y;
-    velocity_earth_y = sinf(psi0)*velocity_body_x + cosf(psi0)*velocity_body_y;
-
-    guidance_loop_set_velocity(velocity_earth_x,velocity_earth_y);
-
 }
 
 
@@ -366,10 +332,8 @@ void take_off(float desired_altitude)
     }
 
 
-    if (fabs(stateGetPositionNed_f()->z - desired_altitude)<0.1)
+    if (time_primitive>2)
     {
-        //guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
-        //guidance_v_set_guided_z(desired_altitude);
         states_race.altitude_is_achieved = 1;
     }
 }
@@ -414,7 +378,6 @@ void left_right_back(float velocity_in_body_x,float velocity_in_body_y)
         z0 = stateGetPositionNed_f()->z;
 	 counter_primitive = 0;
         time_primitive = 0;
-        //psi1 = stateGetNedToBodyEulers_f()->psi;
     }
     //printf("!!!!!!!!!!!!!!!!!!!!!!!!\n");
     guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
@@ -439,31 +402,27 @@ void hold_altitude(float desired_altitude)
 {
     if (primitive_in_use != HOLD_ALTITUDE)
     {
-        printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         primitive_in_use = HOLD_ALTITUDE;
-        guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
+        guidance_h_mode_changed(GUIDANCE_H_MODE_HOVER);
         guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
         counter_primitive = 0;
         time_primitive = 0;
-        guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
-        guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
-        guidance_loop_set_velocity(0,0);
         states_race.altitude_is_achieved = 0;
-        //z0 = stateGetPositionNed_f()->z;
         guidance_v_set_guided_z(desired_altitude);
-        // psi1 = stateGetNedToBodyEulers_f()->psi;
-        guidance_loop_set_heading(psi_startup);
         return;
     }
-//
-    if (fabs(stateGetPositionNed_f()->z - desired_altitude)<0.2 && time_primitive > 1)
-    {
+    if (fabs(stateGetPositionNed_f()->z - desired_altitude)<0.1 && time_primitive > 5)
+	{
+        // psi1 = stateGetNedToBodyEulers_f()->psi;
+        guidance_loop_set_heading(psi_startup);
         states_race.altitude_is_achieved = 1;
+        return;
     }
+
 }
 
-
-void change_heading_absolute(float psi){
+void change_heading_absolute(float psi)
+{
     if(primitive_in_use != CHANGE_HEADING_ABSOLUTE)
     {
         primitive_in_use = CHANGE_HEADING_ABSOLUTE;
@@ -473,10 +432,8 @@ void change_heading_absolute(float psi){
         guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
         guidance_loop_set_heading(psi);
         states_race.turning = TRUE;
-        z0 = stateGetPositionNed_f()->z;
+        /*z0 = stateGetPositionNed_f()->z;*/
     }
-    //guidance_v_set_guided_z(z0);
-
     if (time_primitive > 2)   // was fabs(stateGetNedToBodyEulers_f()->psi - psi0-derta_psi)<0.05
     {
         states_race.turning = FALSE;
@@ -486,7 +443,12 @@ void change_heading_absolute(float psi){
 
 void set_theta(float desired_theta)
 {
-	
+		if (previous_desired_theta != desired_theta)
+		{
+				primitive_in_use = NO_PRIMITIVE;
+				previous_desired_theta = desired_theta;
+
+		}
     if(primitive_in_use != SET_THETA)
     { 
 		primitive_in_use = SET_THETA; 
@@ -494,7 +456,10 @@ void set_theta(float desired_theta)
         time_primitive = 0;
         guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
         guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
-		guidance_loop_set_theta(desired_theta);
+//		guidance_loop_set_theta(1.6/180*3.14);
+//		guidance_loop_set_phi(0.55/180*3.14); //!!!!!!!!!!!
+		guidance_loop_set_theta(0);
+		guidance_loop_set_phi(0); //!!!!!!!!!!!
         z0 = stateGetPositionNed_f()->z;
     }
 }
@@ -503,7 +468,12 @@ void set_theta(float desired_theta)
 
 void set_phi(float desired_phi)
 {
-	
+		if (previous_desired_phi!= desired_phi)
+		{
+				primitive_in_use = NO_PRIMITIVE;
+				previous_desired_phi= desired_phi;
+
+		}
     if(primitive_in_use != SET_PHI)
     { 
 		primitive_in_use = SET_PHI; 
@@ -511,8 +481,63 @@ void set_phi(float desired_phi)
         time_primitive = 0;
         guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
         guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
-		//todo: call set theta function
 		guidance_loop_set_phi(desired_phi);
         z0 = stateGetPositionNed_f()->z;
     }
 }
+
+
+
+void set_attidude(float desired_theta,float desired_phi)
+{
+
+    /*if(primitive_in_use != SET_ATTITUDE)*/
+    /*{ */
+		primitive_in_use = SET_ATTITUDE; 
+		counter_primitive = 0;
+        time_primitive = 0;
+        guidance_h_mode_changed(GUIDANCE_H_MODE_MODULE);
+        guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
+		guidance_loop_set_theta(desired_theta);
+		guidance_loop_set_phi(desired_phi); //!!!!!!!!!!!
+        z0 = stateGetPositionNed_f()->z;
+    /*}*/
+}
+
+
+void calculate_attitude_average(double * p_theta,double *p_phi,struct acceleration* p_accel)
+{
+    if(flag_calcualte_ave_atti == FALSE)
+    { 
+		flag_calcualte_ave_atti = TRUE; 
+		sample_pointer = 0;
+		sample_time = PREPARE_TIME/SAMPLE_NUM;
+		sum_phi = 0;
+		sum_theta = 0;
+		sum_accel.ax = 0;
+		sum_accel.ay = 0;
+		sum_accel.az = 0;
+    }
+	/*srand((unsigned)time(NULL));*/
+	if(rand()/(double)(RAND_MAX) < 0.2) 
+	{
+			sum_theta += stateGetNedToBodyEulers_f()->theta;
+			sum_phi += stateGetNedToBodyEulers_f()->phi;
+			sum_accel.ax += imu.accel.x;//right hand rule (times -1 for gravity vector)
+			sum_accel.ay +=imu.accel.y;
+			sum_accel.az +=imu.accel.z;
+			sample_pointer++;
+	}
+
+	if (sample_pointer == SAMPLE_NUM)
+	{
+			*p_theta= sum_theta/SAMPLE_NUM;
+			*p_phi= sum_phi/SAMPLE_NUM;
+			p_accel->ax = sum_accel.ax/SAMPLE_NUM;
+			p_accel->ay = sum_accel.ay/SAMPLE_NUM;
+			p_accel->az = sum_accel.az/SAMPLE_NUM;
+			flag_calcualte_ave_atti = FALSE;
+   	}
+}
+
+

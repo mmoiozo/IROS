@@ -30,104 +30,44 @@
 #include "modules/flight_plan_in_guided_mode/flight_plan_clock.h"
 #include "modules/state_autonomous_race/state_autonomous_race.h"
 #include "modules/computer_vision/snake_gate_detection.h"
-#include "modules/replay_commands/replay_commands.h"
+#include "modules/kalman_filter/kalman_filter.h"
 
 #define PI 3.1415926
 
 uint8_t previous_mode;
 uint8_t current_mode;
 uint8_t previous_lower_level;
-float turn_heading;
-int gate_counter;
-bool flag_clock3;
 
+double theta_bias;
+double phi_bias;
+double theta_hover;
+double phi_hover;
+struct acceleration accel_bias;
+struct acceleration accel_hover;
+double desired_theta;
+double desired_phi;
 
 void first_part_logic(void);
 void second_part_logic(void);
 void third_part_logic(void);
 void fourth_part_logic(void);
 void fifth_part_logic(void);
-//float choose_heading_after_passing_through_gate(void);
-//float choose_distance_after_gate(void);
 
-int counter_of_step;
-bool replay_flag;
-bool approach_first_part;
-float angle_after_half_gate;
-float velocity_in_first_part;
-float straight_time;
-float approach_time;
-
+//bool replay_flag;
+bool flag_init_geo;
 enum states_lower_level state_lower_level = WAIT_FOR_DETECTION_CM;
 enum states_upper_level state_upper_level = SECOND_PART;
 
-float v_x_search_gate,v_y_search_gate,adjusting_time_search_gate;
 
-struct parameters_to_be_tuned parameter_to_be_tuned;
 
 //temp fix for data set recording
 int init_pos_filter = 0;
 
 
 void command_init(){
-    int i;
-
     previous_mode = autopilot_mode;
     current_mode = autopilot_mode;
-    states_race.time_to_go_straight = 0;
-    states_race.distance_before_gate = 1.5;
-    replay_flag = 0;
-
     init_heading = stateGetNedToBodyEulers_f()->psi;
-
-
-    float distance_after_zigzag_temp[100] = {           1.5,0.5,0.5,0.2,0.5,    // 1-5
-                                                        0.5,0.5,0.5,0.5,0.5,    // 6-10
-                                                        0.5,0.5,0.5,0.5,0.5};  // 11-15
-
-    float heading_after_zigzag_temp[100] = {             -45,0,-10,0,-80,    // 1-5
-                                                         0.5,0.5,0.5,0.5,0.5,    // 6-10
-                                                         0.5,0.5,0.5,0.5,0.5};  // 11-15
-
-    int search_gate_velocity_in_zigzag_temp[100] = {-0.5,0.5,-0.5,0,0};  // -1 is adjusting to right
-
-    float search_time_in_zigzag_temp[100] = {3,3,3,3,3};
-    for(i = 0;i <NUMBER_OF_ZIGZAG; i++)
-    {
-        parameter_to_be_tuned.distance_after_zigzag[i] = distance_after_zigzag_temp[i];
-        parameter_to_be_tuned.heading_after_zigzag[i] = heading_after_zigzag_temp[i]/180.0*PI;
-        parameter_to_be_tuned.search_gate_velocity_in_zigzag[i] = search_gate_velocity_in_zigzag_temp[i];
-        parameter_to_be_tuned.search_time_in_zigzag[i] = search_time_in_zigzag_temp[i];
-    }
-    // delta heading after passing through each gate (degree!)
-
-
-    float heading_after_gates_temp[100] = {            90, -90,90,90,45,      // 1-5
-                                                       0,0,0,0,0,           // 6-10
-                                                       0,0};                // 11-15
-
-    float distance_after_gates_temp[100] = {            3,3,3,3,5.0,    // 1-5
-
-                                                        0.5,0.5,0.5,0.5,0.5,    // 6-10
-                                                        0.5,0.5,0.5,0.5,0.5};  // 11-15
-
-    float height_after_gates_temp[100]   ={             0,0,-2.5,-2,0,            // absolute height
-                                                        0,0,0,0,0};             // 1-5
-
-
-    float approach_after_gates_temp[100]   ={             1.3,1.3,0,0,0,            // time for approach
-
-                                                          0,0,0,0,0};             // 1-5
-
-
-    for(i=0;i<NUMBER_OF_GATES;i++)
-    {
-        parameter_to_be_tuned.heading_after_gate[i] = heading_after_gates_temp[i]/180.0*PI;
-        parameter_to_be_tuned.distance_after_gate[i] = distance_after_gates_temp[i];
-        parameter_to_be_tuned.height_after_gate[i] = height_after_gates_temp[i];
-        parameter_to_be_tuned.approach_after_gate[i] = approach_after_gates_temp[i];
-    }
-
 }
 
 
@@ -141,14 +81,8 @@ void command_run() {
         primitive_in_use = NO_PRIMITIVE;
         state_lower_level = PREPARE_CM; //PREPARE_CM;
         state_upper_level = FIRST_PART;
-        states_race.gate_counter_in_second_part = 0;
-        states_race.gate_counter_in_third_part = 0;
-        replay_flag = 0;
-        approach_first_part = FALSE;
         init_heading = stateGetNedToBodyEulers_f()->psi;
-        gate_counter = 0;
-		flag_clock3 = 0;
-		states_race.altitude_is_achieved = FALSE;
+		flag_init_geo = FALSE;
     }
     if (autopilot_mode != AP_MODE_MODULE) {
         return;
@@ -194,12 +128,14 @@ void first_part_logic()
     switch(state_lower_level)
     {
         case PREPARE_CM:
-            if (time_autopilot_mode > PREPARE_TIME)
+			calculate_attitude_average(&theta_bias,&phi_bias,&accel_bias);
+            if (sample_pointer == SAMPLE_NUM)
             {
                 previous_lower_level = PREPARE_CM;
-                state_lower_level = TAKE_OFF_CLOSE_LOOP_CM;
+                state_lower_level = TAKE_OFF_OPEN_LOOP_CM;
             }
             break;
+			
         case TAKE_OFF_OPEN_LOOP_CM:
             take_off(TAKE_OFF_ALTITUDE);
             if(states_race.altitude_is_achieved == TRUE)
@@ -214,34 +150,57 @@ void first_part_logic()
             if(states_race.altitude_is_achieved == TRUE)
             {
                 previous_lower_level = TAKE_OFF_CLOSE_LOOP_CM;
-                state_lower_level =  HOVER_CM;
-				state_upper_level = FOURTH_PART;
+                state_lower_level = HOVER_CM;
             }
             break;
+
         case HOVER_CM:
             hover();
-            if (time_primitive > HOVER_TIME)
-            {
-                if (previous_lower_level == TAKE_OFF_CLOSE_LOOP_CM)
-                {
-                    previous_lower_level = HOVER_CM;
-
-                    state_lower_level = WAIT_FOR_DETECTION_CM;
-                    state_upper_level = SECOND_PART;
-                }
-                if (previous_lower_level == REPLAY_CM)
-                {
-                    previous_lower_level = HOVER_CM;
-                    //state_lower_level = WAIT_FOR_DETECTION_CM;
-                    //state_upper_level = SECOND_PART;
-		    state_lower_level = ADJUST_HEIGHT_CM;
-		    init_pos_filter = 1;
-                }
-            }
+			calculate_attitude_average(&theta_hover,&phi_hover,&accel_hover);
+					if (sample_pointer == SAMPLE_NUM)
+					{
+							previous_mode = HOVER_CM;
+							state_lower_level = ATTITUDE_CONTROL_CM;
+							state_upper_level = SECOND_PART;
+							counter_temp3 = 0;
+							time_temp3 = 0;
+							/*file_logger_start();*/
+					}
             break;
 
-        default:
-            break;
+		case HOVER_ATTITUDE_CM:
+			/*set_attidude(theta_hover,phi_hover);*/
+			set_attidude(0,0);
+			if(time_primitive > 20)
+			{
+					previous_mode == HOVER_ATTITUDE_CM;
+					state_lower_level = ATTITUDE_CONTROL_CM;
+					state_upper_level = SECOND_PART;
+			}
+			break;
+
+		case TURN_CM:
+			
+			change_heading_absolute(0.0);
+			if(states_race.turning == FALSE)
+			{
+					state_upper_level = SECOND_PART;
+					state_lower_level = ATTITUDE_CONTROL_CM; 
+				    counter_temp3 = 0;
+					time_temp3 = 0;
+					printf("iiiiiiiiiiiiiiiiiiiiii\n");
+			}
+			break;
+
+		case LAND_CM:
+			land();
+			if ( states_race.land_is_finished == 1)
+			{			
+					state_lower_level = LAND_CM; 
+					states_race.land_is_finished = 0;
+
+			}
+			break;
     }
 }
 
@@ -249,319 +208,45 @@ void first_part_logic()
 
 void second_part_logic()
 {
-
-    // if we pass through 100 gates, we can change to third part
-    if ( states_race.gate_counter_in_second_part == NUMBER_OF_GATES)
-    {
-        //states_race.gate_counter_in_second_part = 0;
-        state_upper_level = THIRD_PART;
-        state_lower_level = WAIT_FOR_DETECTION_CM;
-        return;
-    }
-
-    switch (state_lower_level)
-    {
-        case WAIT_FOR_DETECTION_CM:
-            hover();
-            if(time_primitive < HOVER_TIME)
-                break;
-            if(states_race.gate_detected == FALSE)
-            {
-                hover();
-            }
-            else
-            {
-                previous_lower_level = WAIT_FOR_DETECTION_CM;
-                state_lower_level = ADJUST_POSITION_CM;
-            }
-
-            if (time_gate_detected > 3 && states_race.gate_detected == FALSE)
-            {
-                // gate is lost
-                previous_lower_level = WAIT_FOR_DETECTION_CM;
-                state_lower_level = SEARCH_GATE_CM;
-            }
-            break;
-
-
-        case ADJUST_POSITION_CM:
-            if (states_race.gate_detected == FALSE && time_gate_detected > 3)
-            {
-                // lost gate
-                previous_lower_level = ADJUST_POSITION_CM;
-                state_lower_level = WAIT_FOR_DETECTION_CM;
-                break;
-            }
-            if(states_race.ready_pass_through == FALSE) {
-                adjust_position(current_z_gate);
-            }
-            else
-            {
-                states_race.distance_before_gate = current_y_gate;
-                //state_lower_level = GO_THROUGH_CM;
-                previous_lower_level = ADJUST_POSITION_CM;
-                state_lower_level = GO_THROUGH_CM;
-            }
-            break;
-
-
-        case GO_THROUGH_CM:
-            states_race.time_to_go_straight = (states_race.distance_before_gate +
-                    parameter_to_be_tuned.distance_after_gate[states_race.gate_counter_in_second_part])
-                                              /(CONSTANT_VELOCITY_STRAIGHT*1.2);
-            go_straight(CONSTANT_VELOCITY_STRAIGHT);
-            if (time_primitive > states_race.time_to_go_straight)
-            {
-                previous_lower_level = GO_THROUGH_CM;
-                state_lower_level = TURN_CM;
-            }
-            break;
-
-
-        case HOVER_CM:
-            hover();
-            if (time_primitive > HOVER_TIME)
-            {
-                if (previous_lower_level == GO_THROUGH_CM)
-                {
-                    previous_lower_level = HOVER_CM;
-                    state_lower_level = TURN_CM;
-                }
-                else if (previous_lower_level == TURN_CM)
-                {
-                    previous_lower_level = HOVER_CM;
-                    state_lower_level =	APPROACH_GATE_CM;
-                }
-            }
-            break;
-
-
-        case TURN_CM:
-            if (previous_lower_level == GO_THROUGH_CM)
-            {
-                change_heading_absolute(parameter_to_be_tuned.heading_after_gate[gate_counter]);  // !!!!!!!!!!
-                if (states_race.turning == FALSE)
-                {
-                    previous_lower_level = TURN_CM;
-                    state_lower_level = APPROACH_GATE_CM;
-                }
-            }
-
-            if (previous_lower_level == APPROACH_GATE_CM)
-            {
-                change_heading_absolute(parameter_to_be_tuned.heading_after_gate[gate_counter]+3.14/2);   //!!!!!!!!!!!!!!!!!
-                if (states_race.turning == FALSE)
-                {
-                    previous_lower_level = TURN_CM;
-                    state_lower_level = WAIT_FOR_DETECTION_CM;
-                    gate_counter++;
-                    if (gate_counter == 2)
-                    {
-                        gate_counter = 0;
-                    }
-                }
-            }
-
-            break;
-		case APPROACH_GATE_CM:
-			go_straight(CONSTANT_VELOCITY_STRAIGHT);
-            if (time_primitive > parameter_to_be_tuned.approach_after_gate[gate_counter])
-            {
-                previous_lower_level = APPROACH_GATE_CM;
-                state_lower_level = TURN_CM;
-            }
-        default:
-            break;
-    }
+	switch(state_lower_level)
+	{
+		case ATTITUDE_CONTROL_CM:
+				if(time_temp3<5)
+				{
+						/*desired_theta = -1.0/9.8*(-0.5760*pow(time_temp3,2)+1.9200*time_temp3)+theta_bias;*/
+						desired_theta = theta_bias+(-3.0/180.0*3.14);
+						/*desired_theta = theta_hover;*/
+						/*desired_phi = phi_hover;*/
+						/*desired_phi = phi_bias;*/
+						desired_phi = -1.0/180.0*3.14 ;
+				}
+				/*else*/
+				/*{*/
+						/*desired_theta = -1.0/9.8*(-1.32*pow(time_temp3,2)+13.32*time_temp3-32.0)+theta_hover;*/
+						/*[>desired_theta = theta_hover;<]*/
+						/*desired_phi = phi_hover+(-0.0/180*3.14);*/
+                        /*[>desired_phi = 0;<]*/
+				/*}*/
+				set_attidude(desired_theta,desired_phi);
+				if (time_temp3>5)
+				{
+						state_upper_level = FIRST_PART;
+						state_lower_level = LAND_CM; 
+						/*file_logger_stop();*/
+				}
+	}
 }
-
-
 
 void third_part_logic()
 {
-    // zigzag
-    if ( states_race.gate_counter_in_third_part == NUMBER_OF_ZIGZAG)
-    {
-        state_upper_level = FOURTH_PART;
-        return;
-    }
 
-    switch (state_lower_level) {
-
-        case WAIT_FOR_DETECTION_CM:
-            hover();
-			if (time_primitive < HOVER_TIME)
-				break;
-            if (states_race.gate_detected == FALSE) {
-                hover();
-            }
-            else {
-                previous_lower_level = WAIT_FOR_DETECTION_CM;
-                state_lower_level = ADJUST_POSITION_CM;
-            }
-            break;
-
-
-        case ADJUST_POSITION_CM:
-            if (states_race.gate_detected == FALSE && time_gate_detected > 0.5) {
-                // lost gate
-                previous_lower_level = ADJUST_POSITION_CM;
-                state_lower_level = WAIT_FOR_DETECTION_CM;
-                break;
-            }
-            if (states_race.ready_pass_through == FALSE) {
-                adjust_position(current_z_gate);
-            }
-            else {
-                states_race.distance_before_gate = current_y_gate;
-                //state_lower_level = GO_THROUGH_CM;
-                previous_lower_level = ADJUST_POSITION_CM;
-                state_lower_level = GO_THROUGH_CM;
-            }
-            break;
-
-
-        case GO_THROUGH_CM:
-            states_race.time_to_go_straight = (states_race.distance_before_gate +
-                    parameter_to_be_tuned.distance_after_zigzag[states_race.gate_counter_in_third_part])
-                                              / (CONSTANT_VELOCITY_STRAIGHT * 1.2);
-            go_straight(CONSTANT_VELOCITY_STRAIGHT);
-            if (time_primitive > states_race.time_to_go_straight) {
-                previous_lower_level = GO_THROUGH_CM;
-                state_lower_level = HOVER_CM;
-            }
-            break;
-
-
-        case HOVER_CM:
-            hover();
-            if (time_primitive > HOVER_TIME) {
-                if (previous_lower_level == GO_THROUGH_CM)
-                {
-                    previous_lower_level = HOVER_CM;
-                    state_lower_level = TURN_CM;
-
-                }
-                else if(previous_lower_level == TURN_CM)
-                {
-                    previous_lower_level = HOVER_CM;
-                    state_lower_level = SEARCH_GATE_CM;
-                }
-
-            }
-            break;
-
-        case TURN_CM:
-            if(parameter_to_be_tuned.heading_after_gate[states_race.gate_counter_in_third_part] != 0)
-            {
-                change_heading_hover(parameter_to_be_tuned.heading_after_zigzag[states_race.gate_counter_in_third_part]);
-                if (states_race.turning == FALSE)
-                {
-                    // turning is finished, go to next gate
-                    previous_lower_level = TURN_CM;
-                    state_lower_level = HOVER_CM;
-                }
-            }
-            else
-            {
-                previous_lower_level = TURN_CM;
-                state_lower_level = SEARCH_GATE_CM;
-            }
-            break;
-
-        case SEARCH_GATE_CM:
-
-            if (parameter_to_be_tuned.search_gate_velocity_in_zigzag[states_race.gate_counter_in_third_part] != 0)
-            {
-                v_x_search_gate = parameter_to_be_tuned.search_gate_velocity_in_zigzag[states_race.gate_counter_in_third_part];
-                v_y_search_gate = -0.5;
-                adjusting_time_search_gate = parameter_to_be_tuned.search_time_in_zigzag[states_race.gate_counter_in_third_part];
-            }
-            else
-            {
-                // don't need to search gate
-                previous_lower_level = SEARCH_GATE_CM;
-                state_lower_level = WAIT_FOR_DETECTION_CM;
-                states_race.gate_counter_in_third_part++;    //!!!!!!!!!!!!!! finally every gate will arrive here
-                init_pos_filter = 1;
-                break;
-            }
-            left_right_back(v_x_search_gate,v_y_search_gate);
-            if (time_primitive > adjusting_time_search_gate)
-            {
-                previous_lower_level = SEARCH_GATE_CM;
-                state_lower_level = WAIT_FOR_DETECTION_CM;
-                states_race.gate_counter_in_third_part++;    //!!!!!!!!!!!!!! finally every gate will arrive here
-                init_pos_filter = 1;
-            }
-            break;
-        default:
-            break;
-    }
 }
 
 
 void fourth_part_logic() {
-switch (state_lower_level)
-{
-		case HOVER_CM:
-            hover();
-            if (time_primitive > HOVER_TIME) {
-                    previous_lower_level = HOVER_CM;
-                    state_lower_level = CHANGE_HEADING_ABSOLUTE_CM;
-            }
-            break;
-		case CHANGE_HEADING_ABSOLUTE_CM:
-			change_heading_absolute(0.0);
-         	if (states_race.turning == FALSE)
-                {
-                    previous_lower_level = CHANGE_HEADING_ABSOLUTE_CM;
-                    state_lower_level = SET_THETA_CM;
-                }
-		case SET_THETA_CM:
-            set_theta(-10.0/180.0*3.14);//this function is not in 'flight plan in guided mode'
-            //set_phi(0.004);
-            if (time_primitive > 5) {
-			previous_lower_level = SET_THETA_CM;
-                    state_lower_level = HOVER_CM;		
-			}
-			break;
-		default:
-			break;
-}
 }
 
 
 void fifth_part_logic()
 {
-	if (flag_clock3 == 0)
-	{
-       counter_temp3 =0;
-	   time_temp3 = 0;
-       guidance_h_mode_changed(GUIDANCE_H_MODE_HOVER);
-       guidance_v_mode_changed(GUIDANCE_V_MODE_HOVER);
-	   flag_clock3 = 1;
-	}	
-	
-	if (time_temp3 < 1)
-			return;
-	else if(time_temp3<3)
-	{ guidance_h_mode_changed(GUIDANCE_H_MODE_GUIDED);
-		guidance_h_set_guided_heading(0);
-	}
-	else if (time_temp3<13)
-	{
-       guidance_v_mode_changed(GUIDANCE_V_MODE_GUIDED);
-       guidance_h_set_guided_body_vel(1,0);
-	}
-	else if (time_temp3 < 23)
-	{
-       guidance_h_set_guided_body_vel(-1,0);
-	}
-    else 
-    {	
-       guidance_h_mode_changed(GUIDANCE_H_MODE_HOVER);
-       guidance_v_mode_changed(GUIDANCE_V_MODE_HOVER);
-	}
-
 }
