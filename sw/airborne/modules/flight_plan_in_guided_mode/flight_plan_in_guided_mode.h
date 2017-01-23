@@ -57,7 +57,7 @@
 #endif
 
 #ifndef SAMPLE_NUM 
-#define SAMPLE_NUM  20
+#define SAMPLE_NUM  20//was 20
 #endif
 
 struct acceleration{
