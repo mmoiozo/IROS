@@ -219,7 +219,8 @@ void second_part_logic()
 				{
 						/*desired_theta = -1.0/9.8*(-0.5760*pow(time_temp3,2)+1.9200*time_temp3)+theta_bias;*/
 					//desired_theta = theta_bias+(-3.0/180.0*3.14);
-						desired_theta = theta_hover;
+						desired_theta = theta_hover+(-20.0/180.0*3.14);
+						//desired_theta = theta_hover;
 						desired_phi = phi_hover;
 						//desired_phi = phi_bias;//
 					//desired_phi = -1.0/180.0*3.14 ;
