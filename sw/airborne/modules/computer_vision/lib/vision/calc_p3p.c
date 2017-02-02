@@ -49,9 +49,24 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
-//#include <complex>
+#include <complex>
 //#include <TooN/SVD.h>
 //#include <TooN/determinant.h>
+
+//custom linear algebra functions maybe later to paparazzi math
+#define MAT33_TRANS(_mat1,_mat2) {     \
+    MAT33_ELMT((_mat1),0,0) = MAT33_ELMT((_mat2),0,0);  \
+    MAT33_ELMT((_mat1),0,1) = MAT33_ELMT((_mat2),1,0);  \
+    MAT33_ELMT((_mat1),0,2) = MAT33_ELMT((_mat2),2,0);  \
+    MAT33_ELMT((_mat1),1,0) = MAT33_ELMT((_mat2),0,1);  \
+    MAT33_ELMT((_mat1),1,1) = MAT33_ELMT((_mat2),1,1);  \
+    MAT33_ELMT((_mat1),1,2) = MAT33_ELMT((_mat2),2,1);  \
+    MAT33_ELMT((_mat1),2,0) = MAT33_ELMT((_mat2),0,2);  \
+    MAT33_ELMT((_mat1),2,1) = MAT33_ELMT((_mat2),1,2);  \
+    MAT33_ELMT((_mat1),2,2) = MAT33_ELMT((_mat2),2,2);  \
+  }
+
+
 
 /*P3p::P3p() {
 }
@@ -61,9 +76,9 @@ P3p::~P3p() {
 */
 
 struct FloatVect3 worldPoint_0, worldPoint_1, worldPoint_2, featureVector_0, featureVector_1, featureVector_2,
-P1, P2, P3, f1, f2, f3, e1, e2, e3, n1, n2, n3, norm_e3, norm_n1, temp1, temp2, temp3, temp4
+P1, P2, P3, f1, f2, f3, e1, e2, e3, n1, n2, n3, norm_e3, norm_n1, norm_n3, C, temp1, temp2, temp3, temp4
 
-struct FloatMat33 T, N
+struct FloatMat33 T, N, R
 
 
 int P3p_computePoses( TooN::Matrix<3,3> featureVectors, TooN::Matrix<3,3> worldPoints, TooN::Matrix<3,16> & solutions )
@@ -206,29 +221,55 @@ int P3p_computePoses( TooN::Matrix<3,3> featureVectors, TooN::Matrix<3,3> worldP
 	VECT3_CROSS_PRODUCT(n3, n1, temp1);
 	norm_n3 = sqrt(VECT3_NORM2(n3));
 	VECT3_SDIV(n3, n3, norm_n3);
+	VECT3_CROSS_PRODUCT(n2, n3, n1);
 
-	TooN::Matrix<3,3> N;
+	/*TooN::Matrix<3,3> N;
 	N[0] = n1;
 	N[1] = n2;
-	N[2] = n3;
+	N[2] = n3;*/
+	
+	MAT33_ROW_VECT3_SMUL(N, 0, n1, 1);
+	MAT33_ROW_VECT3_SMUL(N, 1, n2, 1);
+	MAT33_ROW_VECT3_SMUL(N, 2, n3, 1);
 
 	// Extraction of known parameters
 
-	P3 = N*(P3-P1);
+	
+	
+	//P3 = N*(P3-P1);
+	VECT3_DIFF(temp1, P3, P1);
+	MAT33_VECT3_MUL(P3, N, temp1); 
 
-	double d_12 = TooN::norm(P2-P1);
+	/*double d_12 = TooN::norm(P2-P1);
 	double f_1 = f3[0]/f3[2];
 	double f_2 = f3[1]/f3[2];
 	double p_1 = P3[0];
-	double p_2 = P3[1];
+	double p_2 = P3[1];*/
+	
+	VECT3_DIFF(temp1, P2, P1);
+	double f_1 = sqrt(VECT3_NORM2(temp1));
+	double f_1 = f3.x/f3.z;
+	double f_2 = f3.y/f3.z;
+	double p_1 = P3.x;
+	double p_2 = P3.y;
+	
 
-	double cos_beta = f1 * f2;
+	/*double cos_beta = f1 * f2;
+	double b = 1/(1-pow(cos_beta,2)) - 1;
+
+	if (cos_beta < 0)
+		b = -sqrt(b);
+	else
+		b = sqrt(b);*/
+	
+	double cos_beta = VECT3_DOT_PRODUCT(f1, f2);
 	double b = 1/(1-pow(cos_beta,2)) - 1;
 
 	if (cos_beta < 0)
 		b = -sqrt(b);
 	else
 		b = sqrt(b);
+	
 
 	// Definition of temporary variables for avoiding multiple computation
 
@@ -245,7 +286,8 @@ int P3p_computePoses( TooN::Matrix<3,3> featureVectors, TooN::Matrix<3,3> worldP
 
 	// Computation of factors of 4th degree polynomial
 
-	TooN::Vector<5> factors;
+	//TooN::Vector<5> factors;
+	double factors[5];
 
 	factors[0] = -f_2_pw2*p_2_pw4
 				 -p_2_pw4*f_1_pw2
@@ -284,9 +326,11 @@ int P3p_computePoses( TooN::Matrix<3,3> featureVectors, TooN::Matrix<3,3> worldP
 
 	// Computation of roots
 
-	TooN::Vector<4> realRoots;
+	//TooN::Vector<4> realRoots;
+	double realRoots[4];
 
-	this->solveQuartic( factors, realRoots );
+	//this->solveQuartic( factors, realRoots );
+	solveQuartic( factors, realRoots );
 
 	// Backsubstitution of each solution
 
@@ -302,24 +346,51 @@ int P3p_computePoses( TooN::Matrix<3,3> featureVectors, TooN::Matrix<3,3> worldP
 		if (cot_alpha < 0)
 			cos_alpha = -cos_alpha;
 
-		TooN::Vector<3> C = TooN::makeVector(
+		/*TooN::Vector<3> C = TooN::makeVector(
 				d_12*cos_alpha*(sin_alpha*b+cos_alpha),
 				cos_theta*d_12*sin_alpha*(sin_alpha*b+cos_alpha),
-				sin_theta*d_12*sin_alpha*(sin_alpha*b+cos_alpha));
+				sin_theta*d_12*sin_alpha*(sin_alpha*b+cos_alpha));*/
+		
+		C.x = d_12*cos_alpha*(sin_alpha*b+cos_alpha);
+		C.y = cos_theta*d_12*sin_alpha*(sin_alpha*b+cos_alpha);
+		C.z = sin_theta*d_12*sin_alpha*(sin_alpha*b+cos_alpha));
 
-		C = P1 + N.T()*C;
+		//C = P1 + N.T()*C;
+		MAT33_VECT3_TRANSP_MUL(temp1,N,C);
+		VECT3_SUM(C,P1,temp1); 
 
-		TooN::Matrix<3,3> R;
+		/*TooN::Matrix<3,3> R;
 		R[0] = TooN::makeVector(	-cos_alpha,		-sin_alpha*cos_theta,	-sin_alpha*sin_theta );
 		R[1] = TooN::makeVector(	sin_alpha,		-cos_alpha*cos_theta,	-cos_alpha*sin_theta );
 		R[2] = TooN::makeVector(	0,				-sin_theta,				cos_theta );
+*/
 
-		R = N.T()*R.T()*T;
+		//Create matrix TODO if bugs double check this also make matrix assignment macro
+		MAT33_ELMT(R, 0, 0) = -cos_alpha;//(row,column)
+		MAT33_ELMT(R, 0, 1) = -sin_alpha*cos_theta;
+		MAT33_ELMT(R, 0, 2) = -sin_alpha*sin_theta;
+		
+		MAT33_ELMT(R, 1, 0) = sin_alpha;//(row,column)
+		MAT33_ELMT(R, 1, 1) = -cos_alpha*cos_theta;
+		MAT33_ELMT(R, 1, 2) = -cos_alpha*sin_theta;
+		
+		MAT33_ELMT(R, 2, 0) = 0;//(row,column)
+		MAT33_ELMT(R, 2, 1) = -sin_theta;
+		MAT33_ELMT(R, 2, 2) = cos_theta;
+		
+		
+		//R = N.T()*R.T()*T;
+		
+		MAT33_TRANS(temp1,R);
+		
 
-		solutions.T()[i*4] = C;
+		/*solutions.T()[i*4] = C;
 		solutions.T()[i*4+1] = R.T()[0];
 		solutions.T()[i*4+2] = R.T()[1];
-		solutions.T()[i*4+3] = R.T()[2];
+		solutions.T()[i*4+3] = R.T()[2];*/
+		//copy position result only
+		memcpy(result+i*4,C,3*sizeof(float));//will this work???
+		
 	}
 
 	return 0;
@@ -347,12 +418,19 @@ int P3p::solveQuartic( TooN::Vector<5> factors, TooN::Vector<4> & realRoots  )
 	double alpha_pw2 = alpha*alpha;
 	double alpha_pw3 = alpha_pw2*alpha;
 
-	std::complex<double> P (-alpha_pw2/12-gamma,0);
+	/*std::complex<double> P (-alpha_pw2/12-gamma,0);
 	std::complex<double> Q (-alpha_pw3/108+alpha*gamma/3-pow(beta,2)/8,0);
 	std::complex<double> R = -Q/2.0+sqrt(pow(Q,2.0)/4.0+pow(P,3.0)/27.0);
 
 	std::complex<double> U = pow(R,(1.0/3.0));
-	std::complex<double> y;
+	std::complex<double> y;*/
+	
+	double complex P = -alpha_pw2/12-gamma + 0*I;
+	double complex Q = -alpha_pw3/108+alpha*gamma/3-pow(beta,2)/8 + 0*I;
+	double complex R = -Q/2.0+csqrt(cpow(Q,2.0)/4.0+cpow(P,3.0)/27.0);
+
+	double complex U = pow(R,(1.0/3.0));
+	double complex y;
 
 	if (U.real() == 0)
 		y = -5.0*alpha/6.0-pow(Q,(1.0/3.0));
