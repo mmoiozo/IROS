@@ -106,7 +106,7 @@
 
     <module name="video_capture">
        <define name="VIDEO_CAPTURE_CAMERA" value="front_camera"/>
-       <define name="VIDEO_CAPTURE_PATH" value="/data/ftp/internal_000/Left_2m"/>
+       <define name="VIDEO_CAPTURE_PATH" value="/data/ftp/internal_000/PP"/>
     </module>
 
 
