@@ -3,7 +3,7 @@
 <airframe name="bebop2_avoider">
 
 	<firmware name="rotorcraft">
-		<target name="ap" board="bebop2" />
+		<target name="ap" board="bebop" />
 		<!-- Camera parameters -->
 		<define name="GPS_TIMEOUT" value="1"/>
 		<define name="H264_ROTATE" value="TRUE" />
@@ -61,7 +61,7 @@
 			<define name="AUTOSWARM_CAMERA" value="front_camera" />
 		</module>
 		<module name="video_rtp_stream">
-			<configure name="VIEWVIDEO_HOST" value="192.168.42.65" />
+			<configure name="VIEWVIDEO_HOST" value="192.168.42.55" />
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />

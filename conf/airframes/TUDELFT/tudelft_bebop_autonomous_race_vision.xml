@@ -10,6 +10,22 @@
       <module name="udp"/>
     </target>
 
+
+    <!-- Camera parameters -->
+		<!--define name="GPS_TIMEOUT" value="1"/-->
+		<define name="H264_ROTATE" value="TRUE" />
+		<define name="MT9F002_SENSOR_WIDTH" value="1920" />
+		<define name="MT9F002_OUTPUT_WIDTH" value="960" /> <!-- 480 / 960 / 1920 / 3840 -->
+		<define name="MT9F002_OUTPUT_HEIGHT" value="1656" /> <!-- 414 / 828 / 1656 / 3312 -->
+		<define name="MT9F002_TARGET_FPS" value="25" />
+		<define name="MT9F002_TARGET_EXPOSURE" value="4" />
+		<define name="MT9F002_GAIN_GREEN1" value="2.7" />
+		<define name="MT9F002_GAIN_GREEN2" value="2.7" />
+		<define name="MT9F002_GAIN_RED" value="2.3" />
+		<define name="MT9F002_GAIN_BLUE" value="3.0" />    
+
+
+
     <define name="USE_SONAR"/>
 
 	<!-- Subsystem section -->
@@ -24,18 +40,18 @@
     <module name="ins" type="extended"/>
   </firmware>
 
-  <modules main_freq="512">
-    <module name="geo_mag"/>
-    <module name="air_data"/>
-    <module name="send_imu_mag_current"/>
-    <!--module name="logger_file">
-      <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
-    </module-->
+	  <modules main_freq="512">
+	    <module name="geo_mag"/>
+	    <module name="air_data"/>
+	    <module name="send_imu_mag_current"/>
+	    <!--module name="logger_file">
+	      <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
+	    </module-->
 
-    <module name="video_thread">
-    </module>
+		<module name="pose_history"/>
 
-    <module name="pose_history"/>
+    		<module name="video_thread"/>
+
 
     <!--module name="cv_detect_contour">
 	<define name="DETECT_CONTOUR_CAMERA" value="front_camera"/>
@@ -45,9 +61,36 @@
        <define name="OPTICFLOW_CAMERA" value="bottom_camera"/>
        <define name="CAMERA_ROTATED_180" value="TRUE"/>
     </module-->
-    <module name="video_rtp_stream">
+    <!--module name="video_rtp_stream">
        <define name="VIEWVIDEO_CAMERA" value="bottom_camera"/>
-    </module>
+    </module-->
+
+    		<module name="cv_ae_awb">
+			<define name="CV_AE_AWB_AV" value="1" />
+			<define name="CV_AE_AWB_VERBOSE" value="0" />
+		</module>
+		<module name="cv_bebop_camera_stabilization">
+			<define name="CAM_STAB_CAMERA"    value="front_camera" />
+		</module>
+		<module name="cv_active_random_filter">
+			<define name="AR_FILTER_CAMERA"    value="front_camera" />
+		</module>
+		<!--module name="autoswarm">
+			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />
+			<define name="AUTOSWARM_CAMERA" value="front_camera" />
+		</module-->
+		<module name="video_rtp_stream">
+			<configure name="VIEWVIDEO_HOST" value="192.168.42.55" />
+			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
+			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
+			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
+			<define name="VIEWVIDEO_FPS" value="18" />
+			<define name="VIEWVIDEO_WRITE_VIDEO" value="FALSE" />
+			<define name="VIEWVIDEO_VIDEO_FILE" value="ar_filter_demo" />
+			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
+		</module>
+
+
   </modules>
 
   <commands>
