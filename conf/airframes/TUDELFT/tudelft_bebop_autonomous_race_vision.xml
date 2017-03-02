@@ -51,7 +51,7 @@
 		<module name="pose_history"/>
 
     		<module name="video_thread"/>
-
+		<module name="cv_image_pose"/>
 
     <!--module name="cv_detect_contour">
 	<define name="DETECT_CONTOUR_CAMERA" value="front_camera"/>
