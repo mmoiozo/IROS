@@ -6,6 +6,7 @@
 		<target name="ap" board="bebop2" />
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" />
+		<define name="USE_BARO_BOARD" value="false" />
 		<!-- Camera parameters -->
 		<define name="GPS_TIMEOUT" value="0"/>
 		<define name="H264_ROTATE" value="TRUE" />
@@ -47,9 +48,13 @@
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
 		<module name="pose_history">
-			<define name="POSE_HISTORY_SIZE" value="100"/>
+			<define name="POSE_HISTORY_SIZE" value="256" />
+		</module>
+		<module name="autoswarm">
+			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />
 		</module>
 		<module name="video_thread" />
+		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
 			<define name="CV_AE_AWB_AV" value="1" />
 			<define name="CV_AE_AWB_VERBOSE" value="0" />
@@ -59,9 +64,6 @@
 		</module>
 		<module name="cv_active_random_filter">
 			<define name="AR_FILTER_CAMERA" value="front_camera" />
-		</module>
-		<module name="autoswarm">
-			<define name="AUTOSWARM_CAMERA" value="front_camera" />
 		</module>
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_HOST" value="192.168.40.74" />
@@ -109,10 +111,8 @@
 	<section name="AHRS" prefix="AHRS_">
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<define name="HEADING_UPDATE_GPS_MIN_SPEED" value="0" />
-		<!-- 
-		For vibrating airframes (tested without and seems to work well on bebop2-40)
-		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />  
-		-->
+		<!-- For vibrating airframes -->
+		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
 		<!-- Delft -->
 		<define name="H_X" value="0.3892503" />
 		<define name="H_Y" value="0.0017972" />

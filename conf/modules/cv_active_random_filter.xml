@@ -7,47 +7,42 @@
 	<settings>
 		<dl_settings>
 			<dl_settings NAME="Filter">
-				<dl_setting var="AR_FILTER_RND_PIX_SAMPLE" min="1" step="100"
+				<dl_setting var="ARF_RND_PIX_SAMPLE" min="1" step="100"
 					max="10000" module="computer_vision/active_random_filter"
 					shortname="Sample size" />
-				<dl_setting var="AR_FILTER_FLOOD_STYLE" min="0" step="1"
+				<dl_setting var="ARF_FLOOD_STYLE" min="0" step="1"
 					max="1" module="computer_vision/active_random_filter" shortname="Flood style"
 					values="Omni|Clockwise" />
-				<dl_setting var="AR_FILTER_SAMPLE_STYLE" min="0" step="1"
+				<dl_setting var="ARF_SAMPLE_STYLE" min="0" step="1"
 					max="2" module="computer_vision/active_random_filter" shortname="Sample style"
 					values="Full|Grid|Random" />
-				<dl_setting var="AR_FILTER_Y_MIN" min="0" step="1" max="255"
+				<dl_setting var="ARF_Y_MIN" min="0" step="1" max="255"
 					module="computer_vision/active_random_filter" shortname="Y min" />
-				<dl_setting var="AR_FILTER_Y_MAX" min="0" step="1" max="255"
+				<dl_setting var="ARF_Y_MAX" min="0" step="1" max="255"
 					module="computer_vision/active_random_filter" shortname="Y max" />
-				<dl_setting var="AR_FILTER_U_MIN" min="0" step="1" max="255"
+				<dl_setting var="ARF_U_MIN" min="0" step="1" max="255"
 					module="computer_vision/active_random_filter" shortname="U min" />
-				<dl_setting var="AR_FILTER_U_MAX" min="0" step="1" max="255"
+				<dl_setting var="ARF_U_MAX" min="0" step="1" max="255"
 					module="computer_vision/active_random_filter" shortname="U max" />
-				<dl_setting var="AR_FILTER_V_MIN" min="0" step="1" max="255"
+				<dl_setting var="ARF_V_MIN" min="0" step="1" max="255"
 					module="computer_vision/active_random_filter" shortname="V min" />
-				<dl_setting var="AR_FILTER_V_MAX" min="0" step="1" max="255"
+				<dl_setting var="ARF_V_MAX" min="0" step="1" max="255"
 					module="computer_vision/active_random_filter" shortname="V max" />
-				<dl_setting var="AR_FILTER_CDIST_YTHRES" min="0" step="1"
-					max="255" module="computer_vision/active_random_filter" shortname="dY" />
-				<dl_setting var="AR_FILTER_CDIST_UTHRES" min="0" step="1"
-					max="255" module="computer_vision/active_random_filter" shortname="dU" />
-				<dl_setting var="AR_FILTER_CDIST_VTHRES" min="0" step="1"
-					max="255" module="computer_vision/active_random_filter" shortname="dV" />
-				<dl_setting var="AR_FILTER_GREY_THRES" min="0" step="1"
+				<dl_setting var="ARF_GREY_THRES" min="0" step="1"
 					max="255" module="computer_vision/active_random_filter" shortname="Grey threshold" />
 
-				<dl_setting var="AR_FILTER_MIN_CIRCLE_PERC" min="0" step="0.01"
+				<dl_setting var="ARF_MIN_CIRCLE_PERC" min="0" step="0.01"
 					max="1" module="computer_vision/active_random_filter" shortname="Min fill (%)" />
-				<dl_setting var="AR_FILTER_MAX_CIRCLE_DEF" min="0" step="0.001"
+				<dl_setting var="ARF_MAX_CIRCLE_DEF" min="0" step="0.001"
 					max="1" module="computer_vision/active_random_filter" shortname="Max eccentricity" />
-				<dl_setting var="AR_FILTER_CAM_RANGE" min="0" step="0.01"
+				<dl_setting var="ARF_CAM_RANGE" min="0" step="0.01"
 					max="10" module="computer_vision/active_random_filter" shortname="max range (m)" />
 				<dl_setting var="default_calArea" min="1" step="1" max="30000"
 					module="computer_vision/active_random_filter" shortname="calArea" />
 			</dl_settings>
 		</dl_settings>
 	</settings>
+  <depends>cv_bebop_camera_stabilization.xml</depends>
   <header>
     <file name="cv_active_random_filter.h"/>
   </header>

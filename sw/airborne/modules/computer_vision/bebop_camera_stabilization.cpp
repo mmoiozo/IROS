@@ -51,7 +51,7 @@ using namespace cv;
 #define CAM_STAB_MOD_VIDEO     1                    ///< Modify the frame to show relevant info
 
 static uint16_t         horizontalLinePixel ( double x_min, double x_max, double y_angle, int8_t dir );
-void                    plotHorizon         ( Mat& sourceFrameCrop );
+void                    plotHorizon         ( Mat& sourceFrameCrop, struct FloatEulers*  eulerAngles );
 /** Fisheye correction **/
 static double 			correctRadius		( double r, double f, double k );
 static double           invertRadius        ( double r, double f, double k );
@@ -59,7 +59,7 @@ static double           invertRadius        ( double r, double f, double k );
 static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
 static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
 /** Stabilization functions **/
-static void             getMVP              ( double MVP[16] );
+static void             getMVP              ( struct FloatEulers*  eulerAngles, double MVP[16] );
 static void             setPerspectiveMat   ( double m[16] );
 static void             view_set_lookat     ( double result[16], double eye[4], double center[4], double up[4] );
 /** Helper functions **/
@@ -71,7 +71,7 @@ static void             float_mat4vec_mul   ( double m1[16], double v1[4], doubl
 static void             rotateVector        ( float x, float y, float z, double vector[4] );
 /** Line drawing functions **/
 static void             plotHorizontalLine  ( Mat& sourceFrameCrop, double yAngle, double xResDeg );
-static void             plotVerticalLine    ( Mat& sourceFrameCrop, double xAngle, double yResDeg );
+static void             plotVerticalLine    ( Mat& sourceFrameCrop, struct FloatEulers*  eulerAngles, double xAngle, double yResDeg );
 /** Optional functions **/
 #if CAM_STAB_MOD_VIDEO
 static void             mod_video           ( Mat& sourceFrame );
@@ -96,7 +96,6 @@ uint16_t                    cropCol             = 0;                            
 int16_t                     fillHeight          = 0;                                ///< Extra height used to make sure the horizon is in the centre
 double                      ispScalar           = 1.0;                              ///< Applied scalar by the ISP
 static uint16_t             runCount            = 0;                                ///< Total number of frames processed
-static struct FloatEulers*  eulerAngles;                                            ///< Euler angles the moment the image was recored (supplied externally)
 static double               MVP[16];                                                ///< The model view projection matrix of the current frame
 
 void bebop_camera_stabilization_init(void){
@@ -108,8 +107,7 @@ void bebop_camera_stabilization_init(void){
 }
 
 void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles){
-    eulerAngles         = curEulerAngles;
-    getMVP(MVP);
+    getMVP( curEulerAngles, MVP);
     double   xAngle     = 75.0/180.0*M_PI;
     uint16_t horizPos   = horizontalLinePixel(-xAngle, xAngle, 0.0, 0);
     uint16_t top        = horizontalLinePixel(-xAngle, xAngle,  0.5 * crop_fovY, +1);
@@ -233,9 +231,9 @@ void point2angles(double x_out, double y_out, double *xAngle, double *yAngle){
     *yAngle     = atan(y_out / viewR);
 }
 
-void plotHorizon(Mat& sourceFrameCrop){
+void plotHorizon(Mat& sourceFrameCrop, struct FloatEulers*  eulerAngles){
     plotHorizontalLine(sourceFrameCrop, 0.0 / 180.0 * M_PI, 5);
-    plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    plotVerticalLine(sourceFrameCrop, eulerAngles,   0.0 / 180.0 * M_PI, 5);
 }
 
 double correctRadius(double r, double f, double k){
@@ -277,7 +275,7 @@ void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
      *y_in          =  y_num / den;
 }
 
-void getMVP(double MVP[16]){
+void getMVP( struct FloatEulers*  eulerAngles, double MVP[16] ){
     double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16];
     double eye[4]       = {0.0, 0.0, -viewR, 1.0};
     double forward[4]   = {0.0, 0.0, 1.0, 1.0};
@@ -340,7 +338,7 @@ void plotHorizontalLine(Mat& sourceFrameCrop, double yAngle, double xResDeg){
     }
 }
 
-void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
+void plotVerticalLine(Mat& sourceFrameCrop, struct FloatEulers*  eulerAngles, double xAngle, double yResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
     // Plot vertical line
     angles2point(xAngle, -85.0/180.0*M_PI, &x1, &y1);

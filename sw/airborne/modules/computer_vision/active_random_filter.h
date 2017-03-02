@@ -24,7 +24,7 @@
  */
 #include "std.h"
 
-#define AR_FILTER_MAX_OBJECTS   30  // Maximum nr of objects
+#define ARF_MAX_OBJECTS   30  // Maximum nr of objects
 
 /** For ball detection **/
 
@@ -77,33 +77,33 @@ typedef struct _memGateBlock {
     gatePoint   corners[4];
 } memoryGateBlock;
 
-extern uint8_t      AR_FILTER_FLOOD_STYLE;
-extern uint8_t      AR_FILTER_SAMPLE_STYLE;
-extern uint16_t     AR_FILTER_RND_PIX_SAMPLE;
+extern uint8_t      ARF_FLOOD_STYLE;
+extern uint8_t      ARF_SAMPLE_STYLE;
+extern uint16_t     ARF_RND_PIX_SAMPLE;
 
-extern uint8_t 		AR_FILTER_Y_MIN;
-extern uint8_t 		AR_FILTER_Y_MAX;
-extern uint8_t 		AR_FILTER_U_MIN;
-extern uint8_t 		AR_FILTER_U_MAX;
-extern uint8_t 		AR_FILTER_V_MIN;
-extern uint8_t 		AR_FILTER_V_MAX;
-extern uint8_t      AR_FILTER_CDIST_YTHRES;
-extern uint8_t      AR_FILTER_CDIST_UTHRES;
-extern uint8_t      AR_FILTER_CDIST_VTHRES;
-extern uint8_t      AR_FILTER_GREY_THRES;
+extern uint8_t 		ARF_Y_MIN;
+extern uint8_t 		ARF_Y_MAX;
+extern uint8_t 		ARF_U_MIN;
+extern uint8_t 		ARF_U_MAX;
+extern uint8_t 		ARF_V_MIN;
+extern uint8_t 		ARF_V_MAX;
+extern uint8_t      ARF_CDIST_YTHRES;
+extern uint8_t      ARF_CDIST_UTHRES;
+extern uint8_t      ARF_CDIST_VTHRES;
+extern uint8_t      ARF_GREY_THRES;
 
-extern double       AR_FILTER_CAM_RANGE;
-extern double       AR_FILTER_MIN_CIRCLE_PERC;
-extern double       AR_FILTER_MAX_CIRCLE_DEF;
+extern double       ARF_CAM_RANGE;
+extern double       ARF_MIN_CIRCLE_PERC;
+extern double       ARF_MAX_CIRCLE_DEF;
 extern uint16_t     default_calArea;
 
 // Filter sample styles
-#define AR_FILTER_STYLE_FULL   0
-#define AR_FILTER_STYLE_GRID   1
-#define AR_FILTER_STYLE_RANDOM 2
+#define ARF_STYLE_FULL   0
+#define ARF_STYLE_GRID   1
+#define ARF_STYLE_RANDOM 2
 // Filter flood styles
-#define AR_FILTER_FLOOD_OMNI   0
-#define AR_FILTER_FLOOD_CW     1
+#define ARF_FLOOD_OMNI   0
+#define ARF_FLOOD_CW     1
 // Filter flood directions
 #define ARF_NONE      -1
 #define ARF_SEARCH     0
@@ -127,6 +127,12 @@ extern "C" {
 #include <state.h>                              // C header used for state functions and data
 void active_random_filter_init(void);
 void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles);
+
+extern memoryBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
+extern uint8_t              neighbourMem_size;                  ///< The size of the neighbour array
+#ifdef __linux__
+extern pthread_mutex_t      neighbourMem_mutex;
+#endif
 
 #ifdef __cplusplus
 }

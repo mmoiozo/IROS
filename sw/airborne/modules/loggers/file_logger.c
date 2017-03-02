@@ -34,6 +34,7 @@
 #include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
 #include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
+#include "subsystems/actuators.h"
 
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
@@ -63,7 +64,7 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z\n"
+      "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z, body_rates_p, body_rates_q, body_rates_r, actuaros_pprz_0, actuaros_pprz_1, actuaros_pprz_2, actuaros_pprz_3\n"
     );
   }
 }
@@ -84,12 +85,14 @@ void file_logger_periodic(void)
     return;
   }
   static uint32_t counter;
+  counter =3 ;
   struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
   struct NedCoor_f * pos        = stateGetPositionNed_f();
   struct NedCoor_f * accel_ned  = stateGetAccelNed_f();
   struct NedCoor_f * speed_ned  = stateGetSpeedNed_f();
+  struct FloatRates* rates_body = stateGetBodyRates_f();
 
-  fprintf(file_logger, "%d,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d\n",
+  fprintf(file_logger, "%d,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%f,%f,%f,%d,%d,%d,%d\n",
           counter,
           pos->x,
           pos->y,
@@ -116,7 +119,14 @@ void file_logger_periodic(void)
           speed_ned->z,
           imu.accel_unscaled.x,
           imu.accel_unscaled.y,
-          imu.accel_unscaled.z
+          imu.accel_unscaled.z,
+          rates_body->p,
+          rates_body->q,
+          rates_body->r,
+          actuators_pprz[0],
+          actuators_pprz[1],
+          actuators_pprz[2],
+          actuators_pprz[3]
          );
   counter++;
 }

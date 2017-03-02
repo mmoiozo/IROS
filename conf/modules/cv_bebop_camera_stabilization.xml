@@ -20,6 +20,7 @@
 			</dl_settings>
 		</dl_settings>
 	</settings>
+	<depends>cv_image_pose.xml</depends>
   <header>
     <file name="cv_bebop_camera_stabilization.h"/>
   </header>

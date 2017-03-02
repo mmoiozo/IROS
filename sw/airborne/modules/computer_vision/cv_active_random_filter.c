@@ -23,20 +23,24 @@
  * Active random sampling colour filter
  */
 
-#ifndef AR_FILTER_CAMERA
-#define AR_FILTER_CAMERA front_camera
-#endif
-
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/cv_active_random_filter.h"
 #include "modules/computer_vision/active_random_filter.h"
-#include "modules/pose_history/pose_history.h"
+#include "modules/computer_vision/cv_image_pose.h"
+
+#include BOARD_CONFIG
+
+#ifndef AR_FILTER_CAMERA
+#define AR_FILTER_CAMERA front_camera
+#endif
+PRINT_CONFIG_VAR(AR_FILTER_CAMERA)
+
+
 
 struct image_t* cv_ar_filter_func(struct image_t* img);
 struct image_t* cv_ar_filter_func(struct image_t* img)
 {
-    struct pose_t imagePose = get_rotation_at_timestamp(img->pprz_ts);
-	active_random_filter((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &imagePose.eulers);
+	active_random_filter((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &cv_image_pose.eulers);
 	return NULL;
 }
 

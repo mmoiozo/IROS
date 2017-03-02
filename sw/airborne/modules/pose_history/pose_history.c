@@ -31,9 +31,12 @@
 #include <pthread.h>
 #endif
 
+#include BOARD_CONFIG
+
 #ifndef POSE_HISTORY_SIZE
 #define POSE_HISTORY_SIZE 1024
 #endif
+PRINT_CONFIG_VAR(POSE_HISTORY_SIZE)
 
 struct rotation_history_ring_buffer_t {
   uint32_t ring_index;
