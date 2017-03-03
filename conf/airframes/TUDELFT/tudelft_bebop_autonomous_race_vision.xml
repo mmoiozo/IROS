@@ -48,6 +48,11 @@
 	      <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
 	    </module-->
 
+		<module name="flight_plan_in_guided_mode"/>
+		<module name="guidance_loop_velocity_autonomous_race"/>
+		<module name="state_autonomous_race"/>
+		<module name="command_level_iros"/>
+
 		<module name="sonar_bebop"/>		
 		<module name="pose_history"/>
 		
@@ -248,7 +253,7 @@
     <define name="MODE_STARTUP" value="AP_MODE_NAV"/>
     <define name="MODE_MANUAL" value="AP_MODE_ATTITUDE_DIRECT"/>
     <define name="MODE_AUTO1" value="AP_MODE_ATTITUDE_Z_HOLD"/>
-    <define name="MODE_AUTO2" value="AP_MODE_GUIDED"/>
+    <define name="MODE_AUTO2" value="AP_MODE_MODULE"/>
   </section>
 
   <section name="BAT">
