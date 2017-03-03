@@ -74,6 +74,9 @@ typedef struct _memGateBlock {
     uint16_t    x_p;
     uint16_t    y_p;
     uint32_t    area_p;
+    double x_w;
+    double y_w;
+    double z_w;
     gatePoint   corners[4];
 } memoryGateBlock;
 
@@ -128,7 +131,8 @@ extern "C" {
 void active_random_filter_init(void);
 void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles);
 
-extern memoryBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
+//extern memoryBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
+extern memoryGateBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
 extern uint8_t              neighbourMem_size;                  ///< The size of the neighbour array
 #ifdef __linux__
 extern pthread_mutex_t      neighbourMem_mutex;

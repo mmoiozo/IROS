@@ -48,8 +48,9 @@
 	      <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
 	    </module-->
 
+		<module name="sonar_bebop"/>		
 		<module name="pose_history"/>
-
+		
     		<module name="video_thread"/>
 		<module name="cv_image_pose"/>
 
@@ -75,6 +76,11 @@
 		<module name="cv_active_random_filter">
 			<define name="AR_FILTER_CAMERA"    value="front_camera" />
 		</module>
+
+		<module name="cv_contour_gate_detection">
+			<define name="SGD_CAMERA" value="front_camera"/>
+		</module>
+
 		<!--module name="autoswarm">
 			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />
 			<define name="AUTOSWARM_CAMERA" value="front_camera" />

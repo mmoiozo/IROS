@@ -78,7 +78,7 @@ using namespace cv;
 
 #define ARF_BALL            0
 #define ARF_GATE            1
-#define ARF_OBJECT          ARF_BALL
+#define ARF_OBJECT          ARF_GATE//BALL
 
 #define     ARF_MAX_OBJCONT_SIZE  10000                                 ///< Largest size of a contour allowed
 #define     ARF_OBJ_X_OFFSET      0.0                                   ///< Offset x from object centre to object c.g. in world frame
