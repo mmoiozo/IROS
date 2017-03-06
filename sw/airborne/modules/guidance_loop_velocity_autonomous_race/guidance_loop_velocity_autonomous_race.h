@@ -28,6 +28,8 @@
 
 #include "math/pprz_algebra_int.h"
 
+#define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_MODULE
+
 struct guidance_module_st {
     float phi_pgain;        ///< The roll P gain on the err_vx
     float phi_igain;        ///< The roll I gain on the err_vx_int

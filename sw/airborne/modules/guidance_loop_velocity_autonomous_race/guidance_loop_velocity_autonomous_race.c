@@ -31,7 +31,7 @@
 #include "firmwares/rotorcraft/stabilization/stabilization_attitude.h"
 #include "modules/command_level_iros/command_level_iros.h"
 #include "modules/flight_plan_in_guided_mode/flight_plan_in_guided_mode.h"
-#include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
+#include "firmwares/rotorcraft/stabilization/stabilization_indi_simple.h"
 #include "modules/state_autonomous_race/state_autonomous_race.h"
 #include<stdio.h>
 #include<stdlib.h>
