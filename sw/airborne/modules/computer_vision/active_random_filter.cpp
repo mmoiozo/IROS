@@ -666,7 +666,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
             gate[corner].x = tmpX;
             gate[corner].y = tmpY;
             PRINT("Corner point at %0.0f %0.0f (ang1: %0.2f  ang2: %0.2f) (x1: %0.0f y1: %0.0f, x2: %0.0f y2: %0.0f, x3: %0.0f y3: %0.0f)\n", gate[corner].x, gate[corner].y, angle2 / M_PI * 180, angle3 / M_PI * 180, x1, y1, x2, y2, x3, y3);
-
+            //circle(frameForPlotting, cvPoint(gate[corner].x,gate[corner].y), 5, cvScalar(100,255), 1);
 
             double px1, py1, angleX, angleY;
             pixel2point((double) gate[corner].y, (double) gate[corner].x + cropCol, &px1, &py1);
