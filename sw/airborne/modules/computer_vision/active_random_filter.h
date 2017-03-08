@@ -65,6 +65,7 @@ typedef struct _gateResults {
     uint16_t     x_p;
     uint16_t     y_p;
     uint32_t     area_p;
+    double 	r_c;
     gatePoint    corners[4];
 } gateResults;
 

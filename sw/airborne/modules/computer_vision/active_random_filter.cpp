@@ -241,6 +241,8 @@ memoryBlock                 neighbourMem[ARF_MAX_OBJECTS];              ///< Arr
 #if ARF_OBJECT == ARF_GATE
 static gateResults          trackRes[ARF_MAX_OBJECTS];                  ///< Array to store the tracking results
 memoryGateBlock             neighbourMem[ARF_MAX_OBJECTS];              ///< Array to store the neighbours
+gateResults hold_Gate[20]; //hold max 20 gates
+int gate_count = 0;
 #endif
 
 #if ARF_MEASURE_FPS
@@ -303,6 +305,8 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 	}
 #if ARF_MOD_VIDEO
 	mod_video(sourceFrameCrop, frameGrey);                              // Modify the sourceframesourceFrame.cols-1
+	PRINT("gate_count:%d\n",gate_count);
+	gate_count = 0;
 #endif // ARF_MOD_VIDEO
 #if ARF_CROSSHAIR
 	//circle(sourceFrame,Point(ispHeight/2 - cropCol + crop.x, ispWidth/2), CFG_MT9F002_FISHEYE_RADIUS * ispScalar, cvScalar(0,255), 1);
@@ -683,18 +687,30 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
     if(corner >= 3){
         /* Storing */
         Moments m = objCont_moments();
-        gateResults curGate;
-        curGate.x_p          = m.m10 / m.m00 + cropCol;
-        curGate.y_p          = m.m01 / m.m00;
-        curGate.area_p       = m.m00;
-        curGate.corners[0].x = gate[0].x;
-        curGate.corners[0].y = gate[0].y;
-        curGate.corners[1].x = gate[1].x;
-        curGate.corners[1].y = gate[1].y;
-        curGate.corners[2].x = gate[2].x;
-        curGate.corners[2].y = gate[2].y;
-        curGate.corners[3].x = gate[3].x;
-        curGate.corners[3].y = gate[3].y;
+//         gateResults curGate;
+//         curGate.x_p          = m.m10 / m.m00 + cropCol;
+//         curGate.y_p          = m.m01 / m.m00;
+//         curGate.area_p       = m.m00;
+//         curGate.corners[0].x = gate[0].x;
+//         curGate.corners[0].y = gate[0].y;
+//         curGate.corners[1].x = gate[1].x;
+//         curGate.corners[1].y = gate[1].y;
+//         curGate.corners[2].x = gate[2].x;
+//         curGate.corners[2].y = gate[2].y;
+//         curGate.corners[3].x = gate[3].x;
+//         curGate.corners[3].y = gate[3].y;
+//         hold_Gate.x_p          = m.m10 / m.m00 + cropCol;
+//         hold_Gate.y_p          = m.m01 / m.m00;
+//         hold_Gate.area_p       = m.m00;
+        hold_Gate[gate_count].corners[0].x = gate[0].x;
+        hold_Gate[gate_count].corners[0].y = gate[0].y;
+        hold_Gate[gate_count].corners[1].x = gate[1].x;
+        hold_Gate[gate_count].corners[1].y = gate[1].y;
+        hold_Gate[gate_count].corners[2].x = gate[2].x;
+        hold_Gate[gate_count].corners[2].y = gate[2].y;
+        hold_Gate[gate_count].corners[3].x = gate[3].x;
+        hold_Gate[gate_count].corners[3].y = gate[3].y;
+	gate_count +=1;
         return true;
     }
     return false;
@@ -870,6 +886,7 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
     bool obj_detected   = false;
     bool foundObj       = false;
     objCont_size        = 0;
+    gate_count = 0;
     if (sourceFrame.cols > 0 && sourceFrame.rows > 0)
     {
         if (ARF_SAMPLE_STYLE > 0){
@@ -1750,16 +1767,17 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	}
 #endif
 #if ARF_GATE_CORNERS && ARF_OBJECT == ARF_GATE
-    for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
+printf("trackRes_size:%d---------------------\n",trackRes_size);
+    for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
     {
         Point p1, p2;
-        p1.x = trackRes[r].corners[3].x;
-        p1.y = trackRes[r].corners[3].y;
+        p1.x = hold_Gate[r].corners[3].x;
+        p1.y = hold_Gate[r].corners[3].y;
         for(uint8_t i = 0; i < 4; i++){
-            p2.x = trackRes[r].corners[i].x;
-            p2.y = trackRes[r].corners[i].y;
+            p2.x = hold_Gate[r].corners[i].x;
+            p2.y = hold_Gate[r].corners[i].y;
             circle(sourceFrame, p2, 5, cvScalar(100,255), 1);
-            line(sourceFrame, p1, p2, Scalar(0,255), 1);
+            //line(sourceFrame, p1, p2, Scalar(0,255), 1);
             p1 = p2;
         }
     }
@@ -1900,7 +1918,7 @@ Rect enlargeRectangle(Mat& sourceFrame, Rect rectangle, double scale){
     return rectangle;
 }
 
-#if ARF_OBJECT == ARF_BALL
+#if ARF_OBJECT == ARF_BALL 
 bool trackRes_findMax( void ){
     trackRes_maxVal = 0.0;
     trackRes_maxId  = 0;
