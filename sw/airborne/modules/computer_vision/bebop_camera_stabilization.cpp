@@ -207,6 +207,25 @@ void pixel2point(double x_in, double y_in, double *x_out, double *y_out){
     outputCoord(x_in, y_in, y_out, x_out);
 }
 
+void pixel2point_cam(double x_in, double y_in, double *x_out, double *y_out){
+    double f, r, theta, corR, maxR;
+    f       = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
+    x_in   -= ispWidth * 0.5;
+    y_in   -= ispHeight * 0.5;
+    r       = sqrt( pow(x_in, 2.0) + pow(y_in, 2.0) );
+    theta   = atan2( y_in, x_in );
+    // Approximation of 2nd order inversion
+    double r_start, r_end;
+    r_start = r;
+    r_end   = r_start * 1.0 / (1.0 + pow(r    , 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r    , 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    r_end   = r_start * 1.0 / (1.0 + pow(r_end, 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    r_end   = r_start * 1.0 / (1.0 + pow(r_end, 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    corR    = correctRadius(r_end, f, default_k);
+    maxR    = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
+    x_in    = (corR * cos(theta)) / maxR;
+    y_in    = (corR * sin(theta)) / maxR;
+}
+
 void point2pixel(double x_out, double y_out, double *x_in, double *y_in){
     double f, r, theta,corR, maxR;
     f           = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));

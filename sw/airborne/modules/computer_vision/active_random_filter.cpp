@@ -305,7 +305,7 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 	}
 #if ARF_MOD_VIDEO
 	mod_video(sourceFrameCrop, frameGrey);                              // Modify the sourceframesourceFrame.cols-1
-	PRINT("gate_count:%d\n",gate_count);
+	//PRINT("gate_count:%d\n",gate_count);
 	gate_count = 0;
 #endif // ARF_MOD_VIDEO
 #if ARF_CROSSHAIR
@@ -634,10 +634,10 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         return false;
 
     char text[200];
-    uint8_t skipSize = 10;
+    uint8_t skipSize = 35;
     uint16_t cornerSize = 0;
 
-    PRINT("Contour has %d points\n", objCont_size);
+    //PRINT("Contour has %d points\n", objCont_size);
     Point gate[32]; // We probably won't detect more than 32 corners per contour
     double x1,x2,x3,y1,y2,y3, angle2, angle3, dAngle, tmpAngle = 0, tmpX = 0, tmpY = 0;
     uint8_t corner = 0;
@@ -655,7 +655,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         angle2  = atan2(y1 - y2, x1 - x2);
         angle3  = atan2(y2 - y3, x2 - x3);
         dAngle  = min(fabs(angle2 - angle3), 2 * M_PI - fabs(angle2 - angle3));
-        printf("%6.2f\n", dAngle * 180 / M_PI);
+        //printf("%6.2f\n", dAngle * 180 / M_PI);
         if(dAngle > 35.f / 180.f * M_PI){
             // Found point!
             // Remember this point, and see if the next angle is bigger
@@ -669,13 +669,13 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         else if(tmpAngle > 0 && cornerSize > 0.5 * skipSize){
             gate[corner].x = tmpX;
             gate[corner].y = tmpY;
-            PRINT("Corner point at %0.0f %0.0f (ang1: %0.2f  ang2: %0.2f) (x1: %0.0f y1: %0.0f, x2: %0.0f y2: %0.0f, x3: %0.0f y3: %0.0f)\n", gate[corner].x, gate[corner].y, angle2 / M_PI * 180, angle3 / M_PI * 180, x1, y1, x2, y2, x3, y3);
+         //PRINT("Corner point at %0.0f %0.0f (ang1: %0.2f  ang2: %0.2f) (x1: %0.0f y1: %0.0f, x2: %0.0f y2: %0.0f, x3: %0.0f y3: %0.0f)\n", gate[corner].x, gate[corner].y, angle2 / M_PI * 180, angle3 / M_PI * 180, x1, y1, x2, y2, x3, y3);
             //circle(frameForPlotting, cvPoint(gate[corner].x,gate[corner].y), 5, cvScalar(100,255), 1);
 
             double px1, py1, angleX, angleY;
             pixel2point((double) gate[corner].y, (double) gate[corner].x + cropCol, &px1, &py1);
             point2angles(px1, py1, &angleY, &angleX);
-            PRINT("pixel(%0.0f, %0.0f) point(%0.2f, %0.2f) angles(%0.2f, %0.2f)\n",gate[corner].x, gate[corner].y + cropCol, px1, py1, angleX / M_PI * 180, angleY / M_PI * 180);
+          //PRINT("pixel(%0.0f, %0.0f) point(%0.2f, %0.2f) angles(%0.2f, %0.2f)\n",gate[corner].x, gate[corner].y + cropCol, px1, py1, angleX / M_PI * 180, angleY / M_PI * 180);
             tmpAngle = 0.0;
             cornerSize = 0;
             corner++;
@@ -684,7 +684,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
             cornerSize = 0;
         }
     }
-    if(corner >= 3){
+    if(corner == 4 ){//|| corner == 3){
         /* Storing */
         Moments m = objCont_moments();
 //         gateResults curGate;
@@ -711,6 +711,12 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         hold_Gate[gate_count].corners[3].x = gate[3].x;
         hold_Gate[gate_count].corners[3].y = gate[3].y;
 	gate_count +=1;
+	
+	//print angle of first corner point, should be top left?
+	 double p_x, p_y, angle_X, angle_Y;
+         pixel2point_cam((double) gate[0].y, (double) gate[0].x + cropCol, &p_x, &p_y);
+         point2angles(p_x, p_y, &angle_Y, &angle_X);
+	PRINT("angle_X:%f angle_Y:%f\n",angle_X*57.324,angle_Y*57.324);
         return true;
     }
     return false;
@@ -1725,6 +1731,60 @@ bool getNewPosition(uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* ma
 	return true;
 }
 
+
+
+//line check
+int line_check(Mat& checkFrame,Point P1,Point P2,float quality_threshhold, int min_sides)
+{
+uint8_t y_c = 0;
+uint8_t u_c = 0;
+uint8_t v_c = 0;
+
+//getYUVColours(checkFrame, checkFrame.rows / 2.0, checkFrame.cols / 2.0, &y_c, &u_c, &v_c);
+//PRINT("y_c:%d u_c:%d v_c:%d\n",y_c,u_c,v_c);
+
+  float n_points = 0;
+  float n_colored_points = 0;
+
+  float t_step = 0.05;
+  float x, y;
+  float t;
+//   PRINT("P1.x:%d P1.y:%d\n",P1.x,P1.y);
+//   PRINT("P2.x:%d P2.y:%d\n",P2.x,P2.y);
+  // go from Q1 to Q2 in 1/t_step steps:
+  for (t = 0.0f; t < 1.0f; t += t_step) {
+    // determine integer coordinate on the line:
+    float x1_temp = (float)P1.x;
+    float x2_temp = (float)P2.x;
+    float y1_temp = (float)P1.y;
+    float y2_temp = (float)P2.y;
+    
+    x = (t * x1_temp + (1.0f - t) * x2_temp);
+    y = (t * y1_temp + (1.0f - t) * y2_temp);
+//PRINT("x:%f y:%f t:%f x1_temp:%f x2_temp:%f\n",x,y,t,x1_temp,x2_temp);
+    // if (x >= 0 && x < im->w && y >= 0 && y < im->h) {
+    if (x >= 0 && x < checkFrame.cols && y >= 0 && y < checkFrame.rows) {
+      // augment number of checked points:
+      n_points += 1;
+
+      //Point(x,y) -> Point(col,row) x = col y = row 
+      //getYUVColours(checkFrame, row, col, &Y, &U, &V); hence:
+      getYUVColours(checkFrame,y,x, &y_c, &u_c, &v_c);
+      if (y_c > ARF_Y_MIN && y_c < ARF_Y_MAX && u_c > ARF_U_MIN && u_c < ARF_Y_MAX && v_c > ARF_V_MIN && v_c < ARF_V_MAX) {
+        // the point is of the right color:
+        n_colored_points += 1;
+      }
+    }
+  }
+  PRINT("y_c:%d u_c:%d v_c:%d\n",y_c,u_c,v_c);
+  return n_colored_points;
+}
+
+void sort_corners()
+{
+  
+}
+
 #if ARF_MOD_VIDEO
 void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	char text[200];
@@ -1767,20 +1827,129 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	}
 #endif
 #if ARF_GATE_CORNERS && ARF_OBJECT == ARF_GATE
-printf("trackRes_size:%d---------------------\n",trackRes_size);
-    for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
+//printf("trackRes_size:%d---------------------\n",trackRes_size);
+    Point p1, p2;
+    
+    uint8_t y_ = 0;
+    uint8_t u_ = 0;
+    uint8_t v_ = 0;
+    
+    //getYUVColours(sourceFrame, sourceFrame.rows / 2.0, sourceFrame.cols / 2.0, &y_, &u_, &v_);
+    //PRINT("y_:%d\nu_:%d\nv_:%d\n",y_,u_,v_);
+    
+    int num_color_lines;
+    
+    //Point coordinates x positive up
+    //y positive left
+    
+    int top_shift[gate_count];
+    
+      for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
     {
-        Point p1, p2;
+      num_color_lines = 0;
+      int max_av = 0;
         p1.x = hold_Gate[r].corners[3].x;
         p1.y = hold_Gate[r].corners[3].y;
         for(uint8_t i = 0; i < 4; i++){
             p2.x = hold_Gate[r].corners[i].x;
             p2.y = hold_Gate[r].corners[i].y;
-            circle(sourceFrame, p2, 5, cvScalar(100,255), 1);
-            //line(sourceFrame, p1, p2, Scalar(0,255), 1);
+	  
+	    int av_x = (p1.x+p2.x)/2;
+	    if(av_x > max_av){
+	      top_shift[r] = i;
+	      max_av = av_x;
+	    }
+	    
             p1 = p2;
         }
+        
+        PRINT("top_shift[%d]:%d\n",r,top_shift[r]);
     }
+    
+    for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
+    {
+	num_color_lines = 0;
+        p1.x = hold_Gate[r].corners[3].x;
+        p1.y = hold_Gate[r].corners[3].y;
+       // for(uint8_t i = 0; i < 4; i++){
+            p2.x = hold_Gate[r].corners[0].x;
+            p2.y = hold_Gate[r].corners[0].y;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	      num_color_lines +=1;
+	      line(sourceFrame, p1, p2, Scalar(250,128), 5);
+	    }
+            p1 = p2;
+        //}
+	  p2.x = hold_Gate[r].corners[1].x;
+          p2.y = hold_Gate[r].corners[1].y;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	      num_color_lines +=1;
+	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
+	     }
+          p1 = p2;
+	  
+	   p2.x = hold_Gate[r].corners[2].x;
+          p2.y = hold_Gate[r].corners[2].y;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	      num_color_lines +=1;
+	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
+	     }
+          p1 = p2;
+	  
+	   p2.x = hold_Gate[r].corners[3].x;
+          p2.y = hold_Gate[r].corners[3].y;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	      num_color_lines +=1;
+	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
+	     }
+          p1 = p2;
+        
+        PRINT("num_color_lines:%d\n",num_color_lines);
+    }
+    
+    
+    
+    for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
+    {
+      num_color_lines = 0;
+        p1.x = hold_Gate[r].corners[3].x;
+        p1.y = hold_Gate[r].corners[3].y;
+        for(uint8_t i = 0; i < 4; i++){
+            p2.x = hold_Gate[r].corners[i].x;
+            p2.y = hold_Gate[r].corners[i].y;
+	    if(i == 0) {
+	      circle(sourceFrame, p2, 5, cvScalar(100,255), 5);
+	    }
+	    else{
+	      circle(sourceFrame, p2, 5, cvScalar(110,140), 5);
+	    }
+//             if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+// 	      num_color_lines +=1;
+// 	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
+// 	    }
+            p1 = p2;
+        }
+        
+        //PRINT("num_color_lines:%d\n",num_color_lines);
+    }
+    
+//     PRINT("p1.x:%d p1.y:%d\n",p1.x,p1.y);
+//     int num_color_points = line_check(sourceFrame,p1,p2,0.6, 4);
+//     PRINT("num_color_points:%d\n",num_color_points);
+    
+//     PRINT("half cols:%f\n",(sourceFrame.cols / 2.0));
+//     PRINT("half rows:%f\n",(sourceFrame.rows / 2.0));
+    //cv Point(x,y)
+    
+    
+    line(sourceFrame,Point((sourceFrame.cols / 2.0),sourceFrame.rows / 2.0),Point((sourceFrame.cols / 2.0)+15,sourceFrame.rows / 2.0),Scalar(0,255), 1);
+    line(sourceFrame,Point(sourceFrame.cols / 2.0,sourceFrame.rows / 2.0),Point(sourceFrame.cols / 2.0,(sourceFrame.rows / 2.0)+25),Scalar(0,255), 1);
+    int half_crop = (sourceFrame.cols / 2.0);
+    
+    
+    
+    
+    //PRINT("cropCol:%d half_crop:%d\n",cropCol,half_crop);
 #endif //ARF_BALL_CIRCLES
 #if ARF_DISTANCE_PLOT
     for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
