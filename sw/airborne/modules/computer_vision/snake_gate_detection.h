@@ -97,4 +97,12 @@ extern char fitness;
 extern int gate_detected;
 extern int init_pos_filter;
 
+//p3p final results
+extern float p3p_result_x;
+extern float p3p_result_y;
+extern float p3p_result_z;
+extern float p3p_result_phi;
+extern float p3p_result_theta;
+extern float p3p_result_psi;
+
 #endif /* SNAKE_GATE_DETECTION_CV_PLUGIN_H */

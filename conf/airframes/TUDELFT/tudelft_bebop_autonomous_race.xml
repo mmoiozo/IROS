@@ -50,7 +50,8 @@
     <module name="send_imu_mag_current"/>
     <module name="flight_plan_in_guided_mode"/>
     <module name="logger_file">
-      <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
+      <!--define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/-->
+      <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000/track_p3p/"/>
     </module>
     <module name="guidance_loop_velocity_autonomous_race"/>
     <module name="state_autonomous_race"/>
@@ -66,9 +67,9 @@
 	<define name="OPENCVDEMO_CAMERA" value="front_camera"/>
     </module-->
 
-    <!--module name="cv_snake_gate_detection">
+    <module name="cv_snake_gate_detection">
       <define name="SGD_CAMERA" value="front_camera"/>
-    </module-->
+    </module>
 
     <!--module name="cv_opticflow">
        <define name="OPTICFLOW_METHOD" value="1"/>
