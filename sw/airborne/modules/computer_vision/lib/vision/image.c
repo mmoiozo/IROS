@@ -573,22 +573,41 @@ void image_show_points(struct image_t *img, struct point_t *points, uint16_t poi
  * @param[in] *vectors The flow vectors to show
  * @param[in] *points_cnt The amount of points and vectors to show
  */
+// void image_show_flow(struct image_t *img, struct flow_t *vectors, uint16_t points_cnt, uint8_t subpixel_factor)
+// {
+//   // Go through all the points
+//   for (uint16_t i = 0; i < points_cnt; i++) {
+//     // Draw a line from the original position with the flow vector
+//     struct point_t from = {
+//       vectors[i].pos.x / subpixel_factor,
+//       vectors[i].pos.y / subpixel_factor
+//     };
+//     struct point_t to = {
+//       (vectors[i].pos.x + vectors[i].flow_x) / subpixel_factor,
+//       (vectors[i].pos.y + vectors[i].flow_y) / subpixel_factor
+//     };
+//     image_draw_line(img, &from, &to);
+//   }
+// }
+
+//Swapped axis
 void image_show_flow(struct image_t *img, struct flow_t *vectors, uint16_t points_cnt, uint8_t subpixel_factor)
 {
   // Go through all the points
   for (uint16_t i = 0; i < points_cnt; i++) {
     // Draw a line from the original position with the flow vector
     struct point_t from = {
-      vectors[i].pos.x / subpixel_factor,
-      vectors[i].pos.y / subpixel_factor
+      vectors[i].pos.y / subpixel_factor,
+      vectors[i].pos.x / subpixel_factor
     };
     struct point_t to = {
-      (vectors[i].pos.x + vectors[i].flow_x) / subpixel_factor,
-      (vectors[i].pos.y + vectors[i].flow_y) / subpixel_factor
+      (vectors[i].pos.y + vectors[i].flow_y) / subpixel_factor,
+      (vectors[i].pos.x + vectors[i].flow_x) / subpixel_factor
     };
     image_draw_line(img, &from, &to);
   }
 }
+
 
 /**
  * Draw a line on the image

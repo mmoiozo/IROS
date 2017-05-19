@@ -66,14 +66,14 @@
 	<define name="OPENCVDEMO_CAMERA" value="front_camera"/>
     </module-->
 
-    <module name="cv_snake_gate_detection">
+    <!--module name="cv_snake_gate_detection">
       <define name="SGD_CAMERA" value="front_camera"/>
-    </module>
-
-    <!--module name="cv_opticflow">
-       <define name="OPTICFLOW_METHOD" value="1"/>
-       <define name="OPTICFLOW_CAMERA" value="bottom_camera"/>
     </module-->
+
+    <module name="cv_flow_speed">
+       <define name="OPTICFLOW_METHOD" value="0"/>
+       <define name="OPTICFLOW_CAMERA" value="front_camera"/>
+    </module>
 
     <module name="video_rtp_stream">
        <define name="VIEWVIDEO_CAMERA" value="front_camera"/>
