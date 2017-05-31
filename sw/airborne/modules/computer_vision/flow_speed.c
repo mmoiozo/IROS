@@ -154,12 +154,15 @@ struct image_t *flow_speed_calc(struct image_t *img)
   // Copy the state
   struct pose_t pose = get_rotation_at_timestamp(img->pprz_ts);
   struct opticflow_state_t temp_state;
+  struct FloatEulers att_temp;
   temp_state.agl = opticflow_state.agl;
   temp_state.rates = pose.rates;
+  att_temp = pose.eulers;
+
 
   // Do the optical flow calculation
   struct opticflow_result_t temp_result = {}; // new initialization
-  opticflow_calc_frame(&opticflow, &temp_state, img, &temp_result);
+  flow_speed_calc_frame(&opticflow, &temp_state, &att_temp, img, &temp_result);
 
   // Copy the result if finished
   pthread_mutex_lock(&opticflow_mutex);
