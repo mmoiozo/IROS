@@ -35,7 +35,7 @@
 #include "opticflow/inter_thread_data.h"
 #include "lib/vision/image.h"
 #include "lib/v4l/v4l2.h"
-#include "opticflow/opticflow_calculator.h"
+#include "opticflow/flow_speed_calculator.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

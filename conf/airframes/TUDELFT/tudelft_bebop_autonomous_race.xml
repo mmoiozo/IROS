@@ -152,10 +152,10 @@
 
   <section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
     <!-- control effectiveness -->
-    <define name="G1_P" value="0.0287"/>
-    <define name="G1_Q" value="0.0254"/>
-    <define name="G1_R" value="0.0008"/>
-    <define name="G2_R" value="0.11502"/>
+    <define name="G1_P" value="0.0288"/>
+    <define name="G1_Q" value="0.0255"/>
+    <define name="G1_R" value="0.0009"/>
+    <define name="G2_R" value="0.11503"/>
 <!--define name="G1_P" value="0.0277"/>
     <define name="G1_Q" value="0.0244"/>
     <define name="G1_R" value="0.0007"/>

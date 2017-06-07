@@ -34,7 +34,7 @@
 #include "modules/computer_vision/lib/vision/gate_corner_refine.h"
 #include "state.h"
 #include "modules/computer_vision/opticflow/opticflow_calculator.h"
-#include "modules/computer_vision/opticflow/opticflow_calculator.h"
+//#include "modules/computer_vision/opticflow/flow_speed_calculator.h"
 #include "modules/state_autonomous_race/state_autonomous_race.h"
 #include "modules/flight_plan_in_guided_mode/flight_plan_clock.h"
 #include "modules/state_autonomous_race/state_autonomous_race.h"

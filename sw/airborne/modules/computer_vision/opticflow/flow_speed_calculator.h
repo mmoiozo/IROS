@@ -29,14 +29,16 @@
 
 
 
-#ifndef OPTICFLOW_CALCULATOR_H
-#define OPTICFLOW_CALCULATOR_H
+#ifndef FLOW_SPEED_CALCULATOR_H
+#define FLOW_SPEED_CALCULATOR_H
 
 #include "std.h"
 #include "inter_thread_data.h"
 #include "lib/vision/image.h"
 #include "lib/v4l/v4l2.h"
 #include "state.h"
+#include "math/pprz_algebra.h"
+#include "math/pprz_algebra_float.h"
 
 //FOR FILE LOGGING
 float vel_x;
@@ -86,6 +88,15 @@ void calc_edgeflow_tot(struct opticflow_t *opticflow, struct opticflow_state_t *
 
 void kalman_filter(float *measurements, float *covariance, float *state
                    , float *process_noise, float *measurement_noise, float fps);
+
+//Debugging
+extern float Flow_speed_dir_x;
+extern float Flow_speed_dir_y;
+extern float Flow_speed_dir_z;
+
+extern float Flow_speed_vec_x;
+extern float Flow_speed_vec_y;
+extern float Flow_speed_vec_z;
 
 //Special vector vector operation
 /* multiply _vin by _mat, store in _vout */

@@ -21,7 +21,7 @@
  */
 
 /**
- * @file modules/computer_vision/opticflow/opticflow_calculator.c
+ * @file modules/computer_vision/opticflow/flow_speed_calculator.c
  * @brief Estimate velocity from optic flow.
  *
  * Using images from a vertical camera and IMU sensor data.
@@ -197,14 +197,31 @@ struct FloatEulers prev_att = {0};
 float vec_sum_x = 0;
 float vec_sum_y = 0;
 float vec_sum_z = 0;
+float theta_debug = 0;
+float flow_debug = 0;
+float rate_debug = 0;
 
 struct timeval stop, start;
 int16_t frame_counter = 0;
 
+//cant use struct??
+float Flow_speed_dir_x = 0;
+float Flow_speed_dir_y = 0;
+float Flow_speed_dir_z = 0;
+
+float Flow_speed_vec_x = 0;
+float Flow_speed_vec_y = 0;
+float Flow_speed_vec_z = 0;
+
+//color I dont know
+uint8_t green_color[4] = {255,128,255,128}; //{0,250,0,250};
+uint8_t blue_color[4] = {0,128,0,128};//{250,250,0,250};
+
+
 
 static void opticflow_debug_send(struct transport_tx *trans, struct link_device *dev)
     {
-    pprz_msg_send_OPTIC_FLOW_DEBUG(trans, dev, AC_ID,&optitrack_vel_x,&optitrack_vel_y,&body_vel_x,&body_vel_y,&vel_x,&vel_y,&psi_);//
+    pprz_msg_send_OPTIC_FLOW_DEBUG(trans, dev, AC_ID,&optitrack_vel_x,&optitrack_vel_y,&body_vel_x,&rate_debug,&theta_debug,&flow_debug,&psi_);//
     }  
 
 
@@ -322,6 +339,7 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
 #if OPTICFLOW_SHOW_CORNERS
   image_show_points(img, opticflow->fast9_ret_corners, result->corner_cnt);
 #endif
+  
 
   // Check if we found some corners to track
   if (result->corner_cnt < 1) {
@@ -361,6 +379,11 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   for(int i = 1; i < result->tracked_cnt;i++){
     VECT3_CROSS_PRODUCT(vel_vec_temp,cross_vectors[i],cross_vectors[i-1]);
     //sign = dot(foe,flow_sum)/(norm(flow_sum)*norm(foe));
+//     if(vel_vec_temp.x != vel_vec_temp.x || vel_vec_temp.y != vel_vec_temp.y || vel_vec_temp.z != vel_vec_temp.z){
+//       vel_vec_temp.x = 0;
+//       vel_vec_temp.y = 0;
+//       vel_vec_temp.z = 0;
+//     }
     
     float sign = VECT3_DOT_PRODUCT(vel_vec_temp, v_est_vec);
       if(sign>0){
@@ -375,7 +398,20 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   }
 
   double norm = sqrt(VECT3_NORM2(vel_sum));
+  if(norm > 0.00000001){
   VECT3_SDIV(vel_sum, vel_sum, norm);
+  }
+  
+  Flow_speed_dir_x = vec_sum_x;
+  Flow_speed_dir_y = vec_sum_y;
+  Flow_speed_dir_z = vec_sum_z;
+  
+  flow_debug = -Flow_speed_dir_z*10;
+  rate_debug = -state->rates.q*10;
+  
+  Flow_speed_vec_x = vel_sum.x;
+  Flow_speed_vec_y = vel_sum.y;
+  Flow_speed_vec_z = vel_sum.z;
   
   printf("vel_sum_x:%f\n",vel_sum.x);
   printf("vel_sum_y:%f\n",vel_sum.y);
@@ -384,6 +420,12 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
     printf("vec_sum_x:%f\n",vec_sum_x);
     printf("vec_sum_y:%f\n",vec_sum_y);
      printf("vec_sum_z:%f\n",vec_sum_z);
+     
+    //better principal point?
+    draw_cross(img,158,32,green_color);
+    
+    //left middle
+    draw_cross(img,15,65,green_color);
 
   
 #if OPTICFLOW_SHOW_FLOW
@@ -510,6 +552,36 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   image_switch(&opticflow->img_gray, &opticflow->prev_img_gray);
 }
 
+//AXIS system
+//(0,0)   160
+//       Y
+// -|----->
+//  |
+//  |
+//  |
+//  |
+//  \/
+// X
+//320
+
+void draw_cross(struct image_t *im,int x, int y, uint8_t* color)
+{
+  struct point_t from, to;
+  
+    //polygon
+    from.x = x-10;
+    from.y = y;
+    to.x = x+10;
+    to.y = y;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+    from.x = x;
+    from.y = y-10;
+    to.x = x;
+    to.y = y+10;
+    image_draw_line_color(im, &from, &to, color);
+}
+
 void undistort_fisheye_point(float point_x, float point_y, float *undistorted_x, float *undistorted_y, int f, float k, float x_img_center, float y_img_center)
 {
   /*
@@ -634,6 +706,8 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
 //     float curr_att_psi = stateGetNedToBodyEulers_f()->psi;
     curr_att.phi = att_eulers->phi;
     curr_att.theta = att_eulers->theta;
+    theta_debug = att_eulers->theta*(180/3.14);
+   //#####################################################IF OPTITRACK use heading gps
     curr_att.psi = -att_eulers->psi;
     
     attitude_delta.phi = (prev_att.phi-curr_att.phi);
@@ -722,14 +796,6 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     
     
     
-    //VECT3_DIFF(der_flow,temp_vec_2,rot_vec);
-    //VECT3_SUM(der_flow,temp_vec_2,rot_vec);
-    VECT3_DIFF(der_flow,rot_vec_2,rot_vec_1);//mayby switch?
-    
-    VECT3_CROSS_PRODUCT(temp_vec_3,temp_vec_1,der_flow);
-    
-    cross_vecs[i] = temp_vec_3;
-    
     //project rotated vector
     //back_proj_points(&rot_vec, struct FloatVect3 *cam_pos, struct FloatMat33 *R_mat, float *x_res, float *y_res)
     
@@ -738,15 +804,34 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     proj_vec(&x_derotated_1,&y_derotated_1, 168, rot_vec_1);
     proj_vec(&x_derotated_2,&y_derotated_2, 168, rot_vec_2);
     
+        //VECT3_DIFF(der_flow,temp_vec_2,rot_vec);
+    //VECT3_SUM(der_flow,temp_vec_2,rot_vec);
+    //first normalize vectors before flow is calculated
+    double norm = sqrt(VECT3_NORM2(rot_vec_1));
+    VECT3_SDIV(rot_vec_1, rot_vec_1, norm);
+    norm = sqrt(VECT3_NORM2(rot_vec_2));
+    VECT3_SDIV(rot_vec_2, rot_vec_2, norm);
+     
+    VECT3_DIFF(der_flow,rot_vec_2,rot_vec_1);//mayby switch?
     
+    //VECT3_CROSS_PRODUCT(temp_vec_3,temp_vec_1,der_flow);
+    VECT3_CROSS_PRODUCT(temp_vec_3,rot_vec_1,der_flow);
     
-//     vectors[i].pos.y = (undist_point_x+157.2)*subpixel_factor;
-//     vectors[i].pos.x = (undist_point_y+12.5)*subpixel_factor;
+    cross_vecs[i] = temp_vec_3;
+    
+    int show_old = 1;
+    if(show_old){
+     vectors[i].pos.y = (undist_point_x+157.2)*subpixel_factor;
+     vectors[i].pos.x = (undist_point_y+12.5)*subpixel_factor;
 //     //- undist_point_x /y
-// //     vectors[i].flow_y = (undist_flow_x  - undist_point_x )*subpixel_factor;
-// //     vectors[i].flow_x = (undist_flow_y  - undist_point_y )*subpixel_factor;
-//     float flow_y = (undist_flow_x  - undist_point_x )*subpixel_factor;
-//     float flow_x = (undist_flow_y  - undist_point_y )*subpixel_factor;
+     
+     float flow_y = (undist_flow_x  - undist_point_x )*subpixel_factor;
+     float flow_x = (undist_flow_y  - undist_point_y )*subpixel_factor;
+     if(flow_y < 0)flow_y = 0;
+     if(flow_x < 0)flow_x = 0;
+     vectors[i].flow_y = flow_y;// (undist_flow_x  - undist_point_x )*subpixel_factor;
+     vectors[i].flow_x = flow_x;//(undist_flow_y  - undist_point_y )*subpixel_factor;
+
 //     
 //     
 // //     vectors[i].flow_y = (x_derotated - undist_point_x)*subpixel_factor;
@@ -759,14 +844,16 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
 //     
 //     vectors[i].flow_y = flow_y + flow_y_rot;// (undist_flow_x  - x_derotated )*subpixel_factor;
 //     vectors[i].flow_x = flow_x + flow_x_rot;//(undist_flow_y  + y_derotated )*subpixel_factor;
+    }
+    else{
     //only plot vectors inside image
     if(x_derotated_1 < -157)x_derotated_1 = -156;
     if(y_derotated_1 < -12.5)y_derotated_1 = -12.5;
     vectors[i].pos.y = (x_derotated_1+157.2)*subpixel_factor;
     vectors[i].pos.x = (y_derotated_1+12.5)*subpixel_factor;
-    vectors[i].flow_y = x_derotated_1 - x_derotated_2;
-    vectors[i].flow_x = y_derotated_1 - y_derotated_2;
-    
+    vectors[i].flow_y = (x_derotated_1 - x_derotated_2)*subpixel_factor;
+    vectors[i].flow_x = (y_derotated_1 - y_derotated_2)*subpixel_factor;
+    }
       vec_sum_x += der_flow.x;//vectors[i].flow_y;
       vec_sum_y += der_flow.y;//vectors[i].flow_x;
       vec_sum_z += der_flow.z;
