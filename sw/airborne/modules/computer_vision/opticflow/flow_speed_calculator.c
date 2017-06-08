@@ -201,6 +201,18 @@ float theta_debug = 0;
 float flow_debug = 0;
 float rate_debug = 0;
 
+//logging flow vectors
+int16_t x_corners_1[60];
+int16_t x_corners_2[60];
+int16_t y_corners_1[60];
+int16_t y_corners_2[60];
+
+//trigger and flow time stamp
+int new_flow = 0;
+double flow_time = 0;
+int vec_count = 0;
+
+
 struct timeval stop, start;
 int16_t frame_counter = 0;
 
@@ -368,6 +380,16 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   
   derotate_flow_vectors(vectors, att_eulers,cross_vectors, result->tracked_cnt, opticflow->subpixel_factor);
   
+  
+    vec_count = result->tracked_cnt;
+    uint32_t curr_ts = img->pprz_ts;
+    flow_time = (double)curr_ts/1000000.0;
+    
+    new_flow = 1;
+    
+    printf("flow_time:%f\n",flow_time);
+    printf("vec_count:%d\n",vec_count);
+  
   v_est_vec.x = vec_sum_x;
   v_est_vec.y = vec_sum_y;
   v_est_vec.z = vec_sum_z;
@@ -420,6 +442,7 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
     printf("vec_sum_x:%f\n",vec_sum_x);
     printf("vec_sum_y:%f\n",vec_sum_y);
      printf("vec_sum_z:%f\n",vec_sum_z);
+     
      
     //better principal point?
     draw_cross(img,158,32,green_color);
@@ -593,7 +616,7 @@ k = 1.085;
 */
   
   float x_mid = point_x - 157.0f;//-(float)(x_princip);
-  float y_mid = point_y - 12.5;//32.0f;//-(float)(y_princip);
+  float y_mid = point_y - 32.5;//12.5;//32.0f;//-(float)(y_princip);
   
   //to polar coordinates
   float r = sqrtf((pow(x_mid,2))+(pow(y_mid,2)));
@@ -603,7 +626,8 @@ k = 1.085;
 //k = 1.051;
 
 //k = 1.080;//last k
-   k = 1.118;
+   //k = 1.118;
+  k = 1.500;
   //k = 1.218;
   
   //radial distortion correction
@@ -714,9 +738,9 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     attitude_delta.theta = prev_att.theta-curr_att.theta;
     attitude_delta.psi = prev_att.psi-curr_att.psi;
     
-    printf("attitude_delta.phi:%f\n",attitude_delta.phi*(180/3.14));
-    printf("attitude_delta.theta:%f\n",attitude_delta.theta*(180/3.14));
-    printf("attitude_delta.psi:%f\n",attitude_delta.psi*(180/3.14));
+//     printf("attitude_delta.phi:%f\n",attitude_delta.phi*(180/3.14));
+//     printf("attitude_delta.theta:%f\n",attitude_delta.theta*(180/3.14));
+//     printf("attitude_delta.psi:%f\n",attitude_delta.psi*(180/3.14));
     
   // Go through all the points
   for (uint16_t i = 0; i < points_cnt; i++) {
@@ -740,6 +764,14 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     float dist_flow_x = (vectors[i].pos.y + vectors[i].flow_y) / subpixel_factor;
     float dist_flow_y = (vectors[i].pos.x + vectors[i].flow_x) / subpixel_factor;
     
+    
+    x_corners_1[i] = vectors[i].pos.y;
+    y_corners_1[i] = vectors[i].pos.x;
+    
+    x_corners_2[i] = vectors[i].pos.y + vectors[i].flow_y;
+    y_corners_2[i] = vectors[i].pos.x + vectors[i].flow_y;
+    
+    
     float x_derotated;
     float y_derotated;
     
@@ -750,8 +782,8 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     
     //printf("dist_point_x:%f\n",dist_point_x);
     //undistort points and flow 
-    undistort_fisheye_point(dist_point_x,dist_point_y, &undist_point_x, &undist_point_y, 168, 1.118, 157, 12.5);
-    undistort_fisheye_point(dist_flow_x,dist_flow_y, &undist_flow_x, &undist_flow_y, 168, 1.118, 157, 12.5);
+    undistort_fisheye_point(dist_point_x,dist_point_y, &undist_point_x, &undist_point_y, 168, 1.118, 157, 32);
+    undistort_fisheye_point(dist_flow_x,dist_flow_y, &undist_flow_x, &undist_flow_y, 168, 1.118, 157, 32);
     
     //vector axis system x forward y left z up
     //vector from point
@@ -766,7 +798,7 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     
     //camera to body rotation
     cam_body.phi = 0;
-    cam_body.theta = -20*(3.14/180);
+    cam_body.theta = -25*(3.14/180);
     cam_body.psi = 0;
     float_rmat_of_eulers_321(&R_20,&cam_body);
     MAT33_VECT3_MUL(vec_curr, R_20,temp_vec_1);
@@ -819,10 +851,10 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     
     cross_vecs[i] = temp_vec_3;
     
-    int show_old = 1;
+    int show_old = 0;
     if(show_old){
      vectors[i].pos.y = (undist_point_x+157.2)*subpixel_factor;
-     vectors[i].pos.x = (undist_point_y+12.5)*subpixel_factor;
+     vectors[i].pos.x = (undist_point_y+32)*subpixel_factor;
 //     //- undist_point_x /y
      
      float flow_y = (undist_flow_x  - undist_point_x )*subpixel_factor;
@@ -848,9 +880,9 @@ void derotate_flow_vectors(struct flow_t *vectors, struct FloatEulers *att_euler
     else{
     //only plot vectors inside image
     if(x_derotated_1 < -157)x_derotated_1 = -156;
-    if(y_derotated_1 < -12.5)y_derotated_1 = -12.5;
+    if(y_derotated_1 < -32)y_derotated_1 = -32;
     vectors[i].pos.y = (x_derotated_1+157.2)*subpixel_factor;
-    vectors[i].pos.x = (y_derotated_1+12.5)*subpixel_factor;
+    vectors[i].pos.x = (y_derotated_1+32)*subpixel_factor;
     vectors[i].flow_y = (x_derotated_1 - x_derotated_2)*subpixel_factor;
     vectors[i].flow_x = (y_derotated_1 - y_derotated_2)*subpixel_factor;
     }

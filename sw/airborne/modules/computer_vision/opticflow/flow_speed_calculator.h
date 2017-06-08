@@ -98,6 +98,17 @@ extern float Flow_speed_vec_x;
 extern float Flow_speed_vec_y;
 extern float Flow_speed_vec_z;
 
+//trigger and flow time stamp
+extern int new_flow;
+extern double flow_time;
+extern int vec_count;
+
+//logging flow vectors
+extern int16_t x_corners_1[60];
+extern int16_t x_corners_2[60];
+extern int16_t y_corners_1[60];
+extern int16_t y_corners_2[60];
+
 //Special vector vector operation
 /* multiply _vin by _mat, store in _vout */
 #define VECT3_VECT3_TRANS_MUL(_mat, _v_a,_v_b) {    \
