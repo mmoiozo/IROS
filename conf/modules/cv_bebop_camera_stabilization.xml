@@ -2,21 +2,21 @@
 
 <module name="cv_bebop_camera_stabilization" dir="computer_vision/">
   <doc>
-    <description>Active random sampling colour filter</description>
+    <description>Bebop front camera stabilization</description>
   </doc>
 	<settings>
 		<dl_settings>
 			<dl_settings NAME="Cam. Stab.">
 				<dl_setting var="viewR" min="0" step="0.000001"
-					max="5" module="computer_vision/bebop_camera_stabilization" shortname="p dist" />
+					max="5" module="computer_vision/cv_bebop_camera_stabilization" shortname="p dist" />
 				<dl_setting var="default_k" min="1" step="0.0000001" max="1.2247460"
-					module="computer_vision/bebop_camera_stabilization" shortname="k" />
+					module="computer_vision/cv_bebop_camera_stabilization" shortname="k" />
 				<dl_setting var="firstOrder_comp" min="0" step="0.001" max="1"
-					module="computer_vision/bebop_camera_stabilization" shortname="6th order coef" />
+					module="computer_vision/cv_bebop_camera_stabilization" shortname="6th order coef" />
 				<dl_setting var="secondOrder_comp" min="0" step="0.001" max="1"
-					module="computer_vision/bebop_camera_stabilization" shortname="2nd order coef" />
+					module="computer_vision/cv_bebop_camera_stabilization" shortname="2nd order coef" />
 				<dl_setting var="angleOfView" min="0" step="0.001" max="180"
-					module="computer_vision/bebop_camera_stabilization" shortname="angle of view" />
+					module="computer_vision/cv_bebop_camera_stabilization" shortname="angle of view" />
 			</dl_settings>
 		</dl_settings>
 	</settings>
@@ -27,19 +27,5 @@
   <init fun="cv_cam_stab_init()"/>
   <makefile>
     <file name="cv_bebop_camera_stabilization.c"/>
-    <file name="bebop_camera_stabilization.cpp"/>
-    <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install/include"/>
-    <flag name="LDFLAGS" value="L$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install/lib" />
-    <flag name="LDFLAGS" value="lopencv_imgcodecs" />
-    <flag name="LDFLAGS" value="lopencv_imgproc" />
-    <flag name="LDFLAGS" value="lopencv_core" />
-    <flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install/share/OpenCV/3rdparty/lib" />
-    <flag name="LDFLAGS" value="lzlib" />
-    <flag name="LDFLAGS" value="llibpng" />
-    <flag name="LDFLAGS" value="lstdc++" />
-    <flag name="LDFLAGS" value="ldl" />
-    <flag name="LDFLAGS" value="lm" />
-    <flag name="LDFLAGS" value="lpthread" />
-    <flag name="LDFLAGS" value="lrt" />
   </makefile>
 </module>

@@ -26,7 +26,22 @@
 #ifndef CV_BEBOP_CAMERA_STABILIZATION_H
 #define CV_BEBOP_CAMERA_STABILIZATION_H
 
-void cv_cam_stab_init(void);
+extern double     viewR;
+extern double     default_k;
+extern double     firstOrder_comp;
+extern double     secondOrder_comp;
+extern float      angleOfView;
+
+extern uint16_t             cropCol;                                    ///< Column from which the ISP is cropped relative to MIN
+extern int16_t              fillHeight;                                 ///< Column from which the ISP is cropped relative to MIN
+
+void              cv_cam_stab_init(void);
+/** Fisheye + Perspective correction **/
+void              point2pixel        (double x_out, double y_out, double *x_in, double *y_in);
+void              pixel2point        (double x_in, double y_in, double *x_out, double *y_out);
+/** Conversion from angles to output frame point **/
+void              angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
+void              point2angles        (double x_out, double y_out, double *xAngle, double *yAngle);
 
 #endif
 

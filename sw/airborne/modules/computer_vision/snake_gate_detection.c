@@ -548,7 +548,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
         snake_left_and_right(img, x, y_high, &x_low2, &x_high2);
 	
 	//draw  swap x and y
-      if(1){
+      if(0){
       from.x = y_low;//cropCol;//fillHeight;//+(frame_shift-480);
       from.y = x_low1;
       to.x = y_low;//cropCol;//fillHeight;//+(frame_shift-480);
@@ -679,7 +679,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
             // also get the color fitness
             check_gate_free(img, temp_check_gate, &temp_check_gate.gate_q, &temp_check_gate.n_sides);
 	    
-	    if(temp_check_gate.n_sides > 2 && temp_check_gate.gate_q > best_gate.gate_q)
+	    if(temp_check_gate.n_sides > 3 && temp_check_gate.gate_q > best_gate.gate_q)
 	    {
 	    best_fitness = fitness;
 	    //best_quality = .gate_q(first maybe zero
@@ -743,7 +743,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
             // also get the color fitness
             check_gate_free(img, temp_check_gate, &temp_check_gate.gate_q, &temp_check_gate.n_sides);
 	    
-	    if(temp_check_gate.n_sides > 2 && temp_check_gate.gate_q > best_gate.gate_q)
+	    if(temp_check_gate.n_sides > 3 && temp_check_gate.gate_q > best_gate.gate_q)
 	    {
 	    //best_fitness = fitness;
             // store the information in the gate:
@@ -766,10 +766,6 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 
       }
       
-      //print all snake gates
-      for(int g = 0;g<n_gates;g++){
-	//if(gates[n_gates].n_sides > 2)draw_gate(img, gates[n_gates]);
-      }
       
         if((best_gate.gate_q > (min_gate_quality*2) && best_gate.n_sides > 3) && last_frame_detection == 1){
 	
@@ -832,7 +828,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
             // also get the color fitness
             check_gate_free(img, temp_check_gate, &temp_check_gate.gate_q, &temp_check_gate.n_sides);
 	    
-	    if(temp_check_gate.n_sides > 2 && temp_check_gate.gate_q > best_gate.gate_q)
+	    if(temp_check_gate.n_sides > 3 && temp_check_gate.gate_q > best_gate.gate_q)
 	    {
 	    //best_fitness = fitness;
 //             // store the information in the gate:
@@ -878,6 +874,10 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
   ***************************************/
   
   //draw_gate_color(img, best_gate, blue_color);
+//     print all snake gates
+    for(int g = 0;g<n_gates;g++){
+     // if(gates[n_gates].n_sides > 2)draw_gate(img, gates[n_gates]);
+    }
 
   if (best_gate.gate_q > (min_gate_quality*2) && best_gate.n_sides > 3) {//n_sides was > 2
     
@@ -904,15 +904,15 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 	////draw_gate_polygon(img,points_x,points_y,blue_color);
 //draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,blue_color);
 	
-// 	if(repeat_gate == 0){
-// 	  draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,blue_color);
-// 	}
-// 	else if(repeat_gate == 1){
-// 	  draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,green_color);
-// // 	  for(int i = 0;i < 3;i++){
-// // 	    draw_cross(img,last_gate.x_corners[i],last_gate.y_corners[i],blue_color);
-// // 	  }
-// 	}
+	if(repeat_gate == 0){
+	  draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,blue_color);
+	}
+	else if(repeat_gate == 1){
+	  draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,green_color);
+// 	  for(int i = 0;i < 3;i++){
+// 	    draw_cross(img,last_gate.x_corners[i],last_gate.y_corners[i],blue_color);
+// 	  }
+	}
 	
 	
     
