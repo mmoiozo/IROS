@@ -106,7 +106,7 @@ void bebop_camera_stabilization_init(void){
     initialHeight   = mt9f002.output_height;
 }
 
-void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles){
+void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles,uint16_t *crop_Col){
     getMVP( curEulerAngles, MVP);
     double   xAngle     = 75.0/180.0*M_PI;
     uint16_t horizPos   = horizontalLinePixel(-xAngle, xAngle, 0.0, 0);
@@ -137,6 +137,7 @@ void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, str
         desHeight++;
     }
     cropCol              = desOffset + fillHeight;
+    *crop_Col		 = cropCol;
     mt9f002.offset_x     = MT9F002_INITIAL_OFFSET_X + desOffset / ispScalar;
     mt9f002.output_width = desHeight;
     mt9f002.sensor_width = desHeight / ispScalar;
@@ -191,7 +192,9 @@ void pixel2point(double x_in, double y_in, double *x_out, double *y_out){
     double f, r, theta, corR, maxR;
     f       = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
     x_in   -= ispWidth * 0.5;
+    //printf("ispWidth:%d\n",ispWidth);
     y_in   -= ispHeight * 0.5;
+    //printf("ispHeight:%d\n",ispHeight);
     r       = sqrt( pow(x_in, 2.0) + pow(y_in, 2.0) );
     theta   = atan2( y_in, x_in );
     // Approximation of 2nd order inversion

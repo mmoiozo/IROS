@@ -59,7 +59,7 @@ using namespace cv;
 #define ARF_GATE_CORNERS    1                       ///< Plot corner points of Gates
 #define ARF_PLOT_COORDS     0                       ///< Plot the coordinates of balls on frame
 #define ARF_DISTANCE_PLOT   0                       ///< Plot lines with distance on frame
-#define ARF_CROSSHAIR       0                       ///< Plot horizon
+#define ARF_CROSSHAIR       1                       ///< Plot horizon
 #define ARF_SHOW_CAM_INFO   1                       ///< Show colour gains and exposure on frame
 #define ARF_SHOW_STATS      0                       ///< Show statistics on the performance of the contour detection
 
@@ -1776,13 +1776,19 @@ uint8_t v_c = 0;
       }
     }
   }
-  PRINT("y_c:%d u_c:%d v_c:%d\n",y_c,u_c,v_c);
+  //PRINT("y_c:%d u_c:%d v_c:%d\n",y_c,u_c,v_c);
   return n_colored_points;
 }
 
-void sort_corners()
+int line_length(Point P1,Point P2)
 {
+  float x1_temp = (float)P1.x;
+  float x2_temp = (float)P2.x;
+  float y1_temp = (float)P1.y;
+  float y2_temp = (float)P2.y;
   
+  float length = sqrt((x2_temp-x1_temp)*(x2_temp-x1_temp)+(y2_temp-y1_temp)*(y2_temp-y1_temp));
+  return (int)length;
 }
 
 #if ARF_MOD_VIDEO
@@ -1843,11 +1849,13 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
     //y positive left
     
     int top_shift[gate_count];
+    int gate_size[gate_count];
     
       for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
     {
       num_color_lines = 0;
       int max_av = 0;
+      int total_length = 0;
         p1.x = hold_Gate[r].corners[3].x;
         p1.y = hold_Gate[r].corners[3].y;
         for(uint8_t i = 0; i < 4; i++){
@@ -1860,45 +1868,51 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	      max_av = av_x;
 	    }
 	    
+	    total_length += line_length(p1,p2);
             p1 = p2;
         }
-        
+        gate_size[r] = total_length;
         PRINT("top_shift[%d]:%d\n",r,top_shift[r]);
+	PRINT("gate_size[%d]:%d\n",r,gate_size[r]);
     }
     
     for(unsigned int r=0; r < gate_count; r++)         // Convert angles & Write/Print output
     {
 	num_color_lines = 0;
-        p1.x = hold_Gate[r].corners[3].x;
-        p1.y = hold_Gate[r].corners[3].y;
+	
+	//check inner gate
+	int gate_edge = gate_size[r]/200;//factor to represent half the gate edge
+	
+        p1.x = hold_Gate[r].corners[(3+top_shift[r])%4].x-gate_edge;
+        p1.y = hold_Gate[r].corners[(3+top_shift[r])%4].y-gate_edge;
        // for(uint8_t i = 0; i < 4; i++){
-            p2.x = hold_Gate[r].corners[0].x;
-            p2.y = hold_Gate[r].corners[0].y;
-            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+            p2.x = hold_Gate[r].corners[(0+top_shift[r])%4].x-gate_edge;
+            p2.y = hold_Gate[r].corners[(0+top_shift[r])%4].y+gate_edge;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>8){
 	      num_color_lines +=1;
 	      line(sourceFrame, p1, p2, Scalar(250,128), 5);
 	    }
             p1 = p2;
         //}
-	  p2.x = hold_Gate[r].corners[1].x;
-          p2.y = hold_Gate[r].corners[1].y;
-            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	  p2.x = hold_Gate[r].corners[(1+top_shift[r])%4].x+gate_edge*2;
+          p2.y = hold_Gate[r].corners[(1+top_shift[r])%4].y+gate_edge;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>8){
 	      num_color_lines +=1;
 	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
 	     }
           p1 = p2;
 	  
-	   p2.x = hold_Gate[r].corners[2].x;
-          p2.y = hold_Gate[r].corners[2].y;
-            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	   p2.x = hold_Gate[r].corners[(2+top_shift[r])%4].x+gate_edge*2;
+          p2.y = hold_Gate[r].corners[(2+top_shift[r])%4].y-gate_edge;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>8){
 	      num_color_lines +=1;
 	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
 	     }
           p1 = p2;
 	  
-	   p2.x = hold_Gate[r].corners[3].x;
-          p2.y = hold_Gate[r].corners[3].y;
-            if(line_check(sourceFrame,p1,p2,0.6, 4)>10){
+	   p2.x = hold_Gate[r].corners[(3+top_shift[r])%4].x-gate_edge;
+          p2.y = hold_Gate[r].corners[(3+top_shift[r])%4].y-gate_edge;
+            if(line_check(sourceFrame,p1,p2,0.6, 4)>8){
 	      num_color_lines +=1;
 	      line(sourceFrame, p1, p2, Scalar(100,100), 5);
 	     }
@@ -1937,14 +1951,18 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 //     int num_color_points = line_check(sourceFrame,p1,p2,0.6, 4);
 //     PRINT("num_color_points:%d\n",num_color_points);
     
-//     PRINT("half cols:%f\n",(sourceFrame.cols / 2.0));
-//     PRINT("half rows:%f\n",(sourceFrame.rows / 2.0));
+     PRINT("half cols:%f\n",(sourceFrame.cols / 2.0));
+     PRINT("half rows:%f\n",(sourceFrame.rows / 2.0));
     //cv Point(x,y)
     
     
     line(sourceFrame,Point((sourceFrame.cols / 2.0),sourceFrame.rows / 2.0),Point((sourceFrame.cols / 2.0)+15,sourceFrame.rows / 2.0),Scalar(0,255), 1);
     line(sourceFrame,Point(sourceFrame.cols / 2.0,sourceFrame.rows / 2.0),Point(sourceFrame.cols / 2.0,(sourceFrame.rows / 2.0)+25),Scalar(0,255), 1);
+    line(sourceFrame,Point(10,0),Point(0,sourceFrame.rows),Scalar(0,255), 1);
+    line(sourceFrame,Point(sourceFrame.cols-20,0),Point(sourceFrame.cols-20,sourceFrame.rows),Scalar(0,255), 1);
     int half_crop = (sourceFrame.cols / 2.0);
+    
+     printf("cropCol:%d,fillHeight:%d\n",cropCol,fillHeight); 
     
     
     

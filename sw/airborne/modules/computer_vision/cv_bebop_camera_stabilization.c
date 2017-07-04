@@ -35,10 +35,12 @@
 #endif
 PRINT_CONFIG_VAR(CAM_STAB_CAMERA);
 
+uint16_t frame_shift;
+
 struct image_t* cv_cam_stab_func(struct image_t* img);
 struct image_t* cv_cam_stab_func(struct image_t* img)
 {
-	bebop_camera_stabilization((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &cv_image_pose.eulers);
+	bebop_camera_stabilization((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &cv_image_pose.eulers,&frame_shift);
 	return NULL;
 }
 

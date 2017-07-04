@@ -33,9 +33,10 @@ extern float        angleOfView;
 #ifdef __cplusplus
 extern "C" {
 #endif
+extern uint16_t frame_shift;
 #include <state.h>                              // C header used for state functions and data
 void bebop_camera_stabilization_init(void);
-void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles);
+void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles,uint16_t *crop_Col);
 /** Fisheye + Perspective correction **/
 void             point2pixel        (double x_out, double y_out, double *x_in, double *y_in);
 void             pixel2point        (double x_in, double y_in, double *x_out, double *y_out);

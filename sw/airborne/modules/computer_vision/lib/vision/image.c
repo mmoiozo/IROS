@@ -157,6 +157,54 @@ uint16_t image_yuv422_colorfilt(struct image_t *input, struct image_t *output, u
   output->ts = input->ts;
 
   // Go trough all the pixels
+  for (uint16_t x = 0; x < output->h; x++) {
+    for (uint16_t y = 0; y < output->w; y+=2) {
+      // Check if the color is inside the specified values
+      if (
+        (dest[1] >= y_m)
+        && (dest[1] <= y_M)
+        && (dest[0] >= u_m)
+        && (dest[0] <= u_M)
+        && (dest[2] >= v_m)
+        && (dest[2] <= v_M)
+      ) {
+        cnt ++;
+        // UYVY
+        dest[0] = 64;        // U
+        dest[1] = source[1];  // Y
+        dest[2] = 255;        // V
+        dest[3] = source[3];  // Y
+      } else {
+        // UYVY
+        char u = source[0] - 127;
+        u /= 4;
+        dest[0] = 127;        // U
+        dest[1] = source[1];  // Y
+        u = source[2] - 127;
+        u /= 4;
+        dest[2] = 127;        // V
+        dest[3] = source[3];  // Y
+      }
+      
+      // Go to the next 2 pixels
+      dest += 4;
+      source += 4;
+    }
+  }
+  return cnt;
+}
+
+uint16_t image_yuv422_colorfilt_old(struct image_t *input, struct image_t *output, uint8_t y_m, uint8_t y_M, uint8_t u_m,
+                                uint8_t u_M, uint8_t v_m, uint8_t v_M)
+{
+  uint16_t cnt = 0;
+  uint8_t *source = input->buf;
+  uint8_t *dest = output->buf;
+
+  // Copy the creation timestamp (stays the same)
+  output->ts = input->ts;
+
+  // Go trough all the pixels
   for (uint16_t y = 0; y < output->h; y++) {
     for (uint16_t x = 0; x < output->w; x += 2) {
       // Check if the color is inside the specified values

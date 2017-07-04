@@ -80,7 +80,7 @@ float awb_mu                = CV_AE_AWB_MU;
 
 uint8_t  bright_bin             = 211;
 uint8_t  sat_bin                = 25;
-uint8_t  middle_index           = 85;
+uint8_t  middle_index           = 40;//85;
 
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);

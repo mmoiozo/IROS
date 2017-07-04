@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include "subsystems/datalink/telemetry.h"
 //#include "modules/computer_vision/lib/vision/gate_detection.h"
-#include "modules/computer_vision/lib/vision/gate_detection_free.h"
+#include "modules/computer_vision/lib/vision/gate_corner_refine.h"
 #include "state.h"
 #include "modules/computer_vision/opticflow/opticflow_calculator.h"
 #include "modules/computer_vision/opticflow/opticflow_calculator.h"
@@ -39,6 +39,7 @@
 #include "modules/state_autonomous_race/state_autonomous_race.h"
 #include "modules/computer_vision/lib/vision/qr_code_recognition.h"
 #include "modules/computer_vision/lib/vision/calc_p3p.h"
+#include "modules/computer_vision/bebop_camera_stabilization.h"
 
 #include "math/pprz_algebra.h"
 #include "math/pprz_algebra_float.h"
@@ -74,9 +75,9 @@ uint8_t color_cr_min  = 139;//138;//146;//was 180
 uint8_t color_cr_max  = 230;//255;
 
 // Gate detection settings:
-int n_samples = 1000;//1000;//500;
-int min_pixel_size = 20;//40;//100;
-float min_gate_quality = 0.20;//0.2;
+int n_samples = 2000;//1000;//500;
+int min_pixel_size = 70;//20;//40;//100;
+float min_gate_quality = 0.2;//0.20;//0.2;
 float gate_thickness = 0;//0.05;//0.10;//
 float gate_size = 34;
 
@@ -154,6 +155,7 @@ float previous_z_gate = 0;
 
 // previous best gate:
 struct gate_img previous_best_gate;
+struct gate_img last_gate;
 
 //SAFETY AND RESET FLAGS
 int uncertainty_gate = 0;
@@ -204,6 +206,13 @@ float debug_3 = 3.3;
 float opt_body_v_x = 0;
 float opt_body_v_y = 0;
 
+//redetection
+int last_frame_detection = 0;
+int repeat_gate = 0;
+
+extern uint16_t             cropCol;                                    ///< Column from which the ISP is cropped relative to MIN
+extern int16_t              fillHeight; 
+
 static void snake_gate_send(struct transport_tx *trans, struct link_device *dev)
 {
 //   pprz_msg_send_SNAKE_GATE_INFO(trans, dev, AC_ID, &pix_x, &pix_y, &pix_sz, &hor_angle, &vert_angle, &x_dist, &y_dist,
@@ -228,7 +237,8 @@ int check_color(struct image_t *im, int x, int y)
 
   uint8_t *buf = im->buf;
   // buf += 2 * (y * (im->w) + x); // each pixel has two bytes
-  buf += 2 * (x * (im->w) + y); // each pixel has two bytes
+  //buf += 2 * (x * (im->w) + y); // each pixel has two bytes
+  buf += x * (im->w) * 2 + y * 2;
   // odd ones are uy
   // even ones are vy
 
@@ -273,10 +283,11 @@ uint16_t image_yuv422_set_color(struct image_t *input, struct image_t *output, i
 
   // Copy the creation timestamp (stays the same)
   output->ts = input->ts;
-  // if (x % 2 == 1) { x--; }
-  if (y % 2 == 1) { y--; }
+   //if (x % 2 == 1) { x--; }
+  
+  //if (y % 2 == 1) { y--; }
 
-  if (x < 0 || x >= input->w || y < 0 || y >= input->h) {
+  if (x < 0 || x >= input->h || y < 0 || y >= input->w) {
     return;
   }
 
@@ -285,14 +296,17 @@ uint16_t image_yuv422_set_color(struct image_t *input, struct image_t *output, i
   source += y * (input->w) * 2 + x * 2;
   dest += y * (output->w) * 2 + x * 2;
   */
+//   source += x * (input->w) * 2 + y * 2;
+//   dest += x * (output->w) * 2 + y * 2;
   source += x * (input->w) * 2 + y * 2;
   dest += x * (output->w) * 2 + y * 2;
   // UYVY
-  dest[0] = 65;//211;        // U//was 65
-  dest[1] = source[1];  // Y
-  dest[2] = 255;//60;        // V//was 255
-  dest[3] = source[3];  // Y
+  dest[0] = 255;//65;//211;        // U//was 65
+  dest[1] = 255;//source[1];  // Y
+  dest[2] = 255;//255;//60;        // V//was 255
+  dest[3] = 255;//source[3];  // Y
 }
+
 
 void calculate_gate_position(int x_pix, int y_pix, int sz_pix, struct image_t *img, struct gate_img gate)
 {
@@ -440,6 +454,12 @@ void snake_gate_periodic(void)
   delta_z_gate = current_z_gate - sonar_alt;
 }
 
+//qsort comp function for sorting 
+int cmpfunc (const void * a, const void * b)
+{
+   return ( *(int*)a - *(int*)b );
+}
+
 // Function
 // Samples from the image and checks if the pixel is the right color.
 // If yes, it "snakes" up and down to see if it is the side of a gate.
@@ -462,23 +482,59 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
   //pix_y = img->h;
 
 
+  //printf("frame_shift:%d\n",frame_shift);
+//   from.x = img->w-fillHeight;//cropCol;//fillHeight;//+(frame_shift-480);
+//   from.y = 214;
+//   to.x = img->w-fillHeight;//cropCol;//fillHeight;//+(frame_shift-480);
+//   to.y = 400;
+//   image_draw_line(img, &from, &to);
+//   from.x = img->w-fillHeight;//cropCol;//fillHeight;//+(frame_shift-480);
+//   from.y = 214;
+//   to.x = img->w-fillHeight;//cropCol;//fillHeight;//480-(frame_shift-480);
+//   to.y = 414;
+//   image_draw_line(img, &from, &to);
+  from.x = 20;
+  from.y = 414;
+  to.x = 245;//cropCol;//fillHeight;//+(frame_shift-480);
+  to.y = 414;
+  //image_draw_line(img, &from, &to);
+ 
+  //y right positive 
+  //x opwards positive 
 
   n_gates = 0;
 
   //color picker
   //check_color_center(img,&y_center_picker,&cb_center,&cr_center);
+  check_color_center(img,&y_center_picker,&cb_center,&cr_center);
 
+  printf("img->h:%d img->w:%d,cropCol:%d,fillHeight:%d\n",img->h,img->w,cropCol,fillHeight); 
+  //h828 w480
+  
   for (i = 0; i < n_samples; i++) {
     // get a random coordinate:
     x = rand() % img->h;
     y = rand() % img->w;
 
+    //image_yuv422_set_color(img,img,x,y);
+    
     //check_color(img, 1, 1);
     // check if it has the right color
     if (check_color(img, x, y)) {
+     // image_yuv422_set_color(img,img,x,y);
       // snake up and down:
       snake_up_and_down(img, x, y, &y_low, &y_high);
       sz = y_high - y_low;
+      
+      //draw  swap x and y
+      if(0){
+      from.x = y_low;//cropCol;//fillHeight;//+(frame_shift-480);
+      from.y = x;
+      to.x = y_high;//cropCol;//fillHeight;//+(frame_shift-480);
+      to.y = x;
+      image_draw_line(img, &from, &to);
+      }
+      //draw
 
       y_low = y_low + (sz * gate_thickness);
       y_high = y_high - (sz * gate_thickness);
@@ -490,6 +546,16 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
         // snake left and right:
         snake_left_and_right(img, x, y_low, &x_low1, &x_high1);
         snake_left_and_right(img, x, y_high, &x_low2, &x_high2);
+	
+	//draw  swap x and y
+      if(1){
+      from.x = y_low;//cropCol;//fillHeight;//+(frame_shift-480);
+      from.y = x_low1;
+      to.x = y_low;//cropCol;//fillHeight;//+(frame_shift-480);
+      to.y = x_high1;
+      image_draw_line(img, &from, &to);
+      }
+      //draw
 
         x_low1 = x_low1 + (sz * gate_thickness);
         x_high1 = x_high1 - (sz * gate_thickness);
@@ -516,7 +582,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
           // only increment the number of gates if the quality is sufficient
           // else it will be overwritten by the next one
           if (quality > best_quality) { //min_gate_quality)
-       draw_gate(img, gates[n_gates]);
+      // draw_gate(img, gates[n_gates]);
           best_quality = quality;
           n_gates++;
         }
@@ -534,7 +600,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
           // only increment the number of gates if the quality is sufficient
           // else it will be overwritten by the next one
           if (quality > best_quality) { //min_gate_quality)
-         draw_gate(img, gates[n_gates]);
+         //draw_gate(img, gates[n_gates]);
             best_quality = quality;
             n_gates++;
           }
@@ -557,10 +623,12 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
   float size_factor = 1.5;//2;//1.25;
 
   // do an additional fit to improve the gate detection:
-  if (best_quality > min_gate_quality && n_gates > 0) {
+  if ((best_quality > min_gate_quality && n_gates > 0) || last_frame_detection) {
     // temporary variables:
 
-
+    //no redetection yet
+    repeat_gate = 0;
+    
     //if (gen_alg) {
 
       int max_candidate_gates = 1;//10;
@@ -588,10 +656,15 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 	  y_center = gates_y;
 	  radius   = gates_sz;
           // detect the gate:
-          gate_detection_free(img, points_x, points_y, &x_center, &y_center, &radius, &fitness, &gates_x, &gates_y, &gates_sz,
-                         (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y, clock_arms, &angle_1, &angle_2, &psi_gate,
-                         &s_left, &s_right);
+//           gate_detection_free(img, points_x, points_y, &x_center, &y_center, &radius, &fitness, &gates_x, &gates_y, &gates_sz,
+//                          (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y, clock_arms, &angle_1, &angle_2, &psi_gate,
+//                          &s_left, &s_right);
 //draw_gate_polygon(img,points_x,points_y,blue_color);
+	  int x_center_p = x_center;
+	  int y_center_p = y_center;
+	  int radius_p   = radius;
+	  gate_corner_ref(img, points_x, points_y, &x_center_p, &y_center_p, &radius_p,
+                         (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y);
           //if (fitness < best_fitness) {
             //best_fitness = fitness;
             // store the information in the gate:
@@ -644,10 +717,15 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 	  y_center = gates[gate_nr].y;
 	  radius   = gates_sz;
           // detect the gate:
-          gate_detection_free(img, points_x, points_y, &x_center, &y_center, &radius, &fitness, &(gates[gate_nr].x), &(gates[gate_nr].y),
-                         &(gates[gate_nr].sz),
-                         (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y, clock_arms, &angle_1, &angle_2, &psi_gate,
-                         &s_left, &s_right);
+//           gate_detection_free(img, points_x, points_y, &x_center, &y_center, &radius, &fitness, &(gates[gate_nr].x), &(gates[gate_nr].y),
+//                          &(gates[gate_nr].sz),
+//                          (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y, clock_arms, &angle_1, &angle_2, &psi_gate,
+//                          &s_left, &s_right);
+	  int x_center_p = x_center;
+	  int y_center_p = y_center;
+	  int radius_p   = radius;
+	  gate_corner_ref(img, points_x, points_y, &x_center_p, &y_center_p, &radius_p,
+                         (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y);
 	  //draw_gate_polygon(img,points_x,points_y,blue_color);
           //if (fitness < best_fitness) {
             //best_fitness = fitness;
@@ -687,6 +765,88 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
         }*/
 
       }
+      
+      //print all snake gates
+      for(int g = 0;g<n_gates;g++){
+	//if(gates[n_gates].n_sides > 2)draw_gate(img, gates[n_gates]);
+      }
+      
+        if((best_gate.gate_q > (min_gate_quality*2) && best_gate.n_sides > 3) && last_frame_detection == 1){
+	
+	repeat_gate = 1;
+	
+	int x_values[4];
+	int y_values[4];
+	
+	memcpy(x_values,&(last_gate.x_corners[0]),sizeof(int)*4);
+	memcpy(y_values,&(last_gate.y_corners[0]),sizeof(int)*4);
+	
+	//sort small to large 
+	qsort(x_values, 4, sizeof(int), cmpfunc);
+	qsort(y_values, 4, sizeof(int), cmpfunc);
+// 	printf("in repeat_gate ########################################################\n ");
+// 	printf("repeat_gate x1:%d x2:%d x3:%d x4:%d\n",last_gate.x_corners[0],last_gate.x_corners[1],last_gate.x_corners[2],last_gate.x_corners[3]);
+// 	printf("repeat_gate y1:%d y2:%d y3:%d y4:%d\n",last_gate.y_corners[0],last_gate.y_corners[1],last_gate.y_corners[2],last_gate.y_corners[3]);
+// 	
+	
+// 	    //   int16_t ROI_size = (int16_t)(((float) last_gate.sz) * size_factor);
+//           int16_t min_x = last_gate.x - ROI_size;
+//           min_x = (min_x < 0) ? 0 : min_x;
+//           int16_t max_x = last_gate.x + ROI_size;
+//           max_x = (max_x < img->h) ? max_x : img->h;
+//           int16_t min_y = last_gate.y - ROI_size;
+//           min_y = (min_y < 0) ? 0 : min_y;
+//           int16_t max_y = last_gate.y + ROI_size;
+//           max_y = (max_y < img->w) ? max_y : img->w;
+//     //draw_gate(img, gates[gate_nr]);
+// 	  gates_sz = last_gate.sz;
+// 	  x_center = last_gate.x;
+// 	  y_center = last_gate.y;
+// 	  radius   = gates_sz;
+//           // detect the gate:
+// //           gate_detection_free(img, points_x, points_y, &x_center, &y_center, &radius, &fitness, &(gates[gate_nr].x), &(gates[gate_nr].y),
+// //                          &(gates[gate_nr].sz),
+// //                          (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y, clock_arms, &angle_1, &angle_2, &psi_gate,
+// //                          &s_left, &s_right);
+// 	  int x_center_p = x_center;
+// 	  int y_center_p = y_center;
+	//check x size, maybe use y also later?
+ 	  int radius_p   = x_values[3]-x_values[0];
+	  gate_corner_ref_2(img, last_gate.x_corners, last_gate.y_corners,&radius_p);
+	  
+	  //draw_gate_polygon(img,points_x,points_y,blue_color);
+          //if (fitness < best_fitness) {
+            //best_fitness = fitness;
+            // store the information in the gate: ,do we need to?
+	  /*
+            temp_check_gate.x = (int) x_center;
+            temp_check_gate.y = (int) y_center;
+            temp_check_gate.sz = (int) radius;
+            temp_check_gate.sz_left = (int) s_left;
+            temp_check_gate.sz_right = (int) s_right;*/
+	    
+	    memcpy(&(temp_check_gate.x_corners[0]),points_x,sizeof(int)*4);
+	    memcpy(&(temp_check_gate.y_corners[0]),points_y,sizeof(int)*4);
+	    
+	    
+            // also get the color fitness
+            check_gate_free(img, temp_check_gate, &temp_check_gate.gate_q, &temp_check_gate.n_sides);
+	    
+	    if(temp_check_gate.n_sides > 2 && temp_check_gate.gate_q > best_gate.gate_q)
+	    {
+	    //best_fitness = fitness;
+//             // store the information in the gate:
+//             best_gate.x = temp_check_gate.x;
+//             best_gate.y = temp_check_gate.y;
+//             best_gate.sz = temp_check_gate.sz;
+//             best_gate.sz_left = temp_check_gate.sz_left;
+//             best_gate.sz_right = temp_check_gate.sz_right;
+	    best_gate.gate_q = temp_check_gate.gate_q;
+	    best_gate.n_sides = temp_check_gate.n_sides;
+	    memcpy(&(best_gate.x_corners[0]),&(temp_check_gate.x_corners[0]),sizeof(int)*4);
+	    memcpy(&(best_gate.y_corners[0]),&(temp_check_gate.y_corners[0]),sizeof(int)*4);
+	    }
+      }
    
   } else {
     //random position guesses here and then genetic algorithm
@@ -694,50 +854,6 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 
   }
 
-  /*
-  * What is better? The current or previous gate?
-  */
-  if(previous_best_gate.sz != 0 && best_quality > min_gate_quality && n_gates > 0)
-  {
-    // refit the previous best gate in the current image and compare the quality:
-    int16_t ROI_size = (int16_t)(((float) previous_best_gate.sz) * size_factor);
-    int16_t min_x = previous_best_gate.x - ROI_size;
-    min_x = (min_x < 0) ? 0 : min_x;
-    int16_t max_x = previous_best_gate.x + ROI_size;
-    max_x = (max_x < img->h) ? max_x : img->h;
-    int16_t min_y = previous_best_gate.y - ROI_size;
-    min_y = (min_y < 0) ? 0 : min_y;
-    int16_t max_y = previous_best_gate.y + ROI_size;
-    max_y = (max_y < img->w) ? max_y : img->w;
-
-    // detect the gate:
-    gate_detection_free(img, points_x, points_y, &x_center, &y_center, &radius, &fitness, &(previous_best_gate.x), &(previous_best_gate.y),
-                   &(previous_best_gate.sz),
-                   (uint16_t) min_x, (uint16_t) min_y, (uint16_t) max_x, (uint16_t) max_y, clock_arms, &angle_1, &angle_2, &psi_gate,
-                   &s_left, &s_right);
-//draw_gate_polygon(img,points_x,points_y,blue_color);
-    // store the information in the gate:
-    previous_best_gate.x = (int) x_center;
-    previous_best_gate.y = (int) y_center;
-    previous_best_gate.sz = (int) radius;
-    previous_best_gate.sz_left = (int) s_left;
-    previous_best_gate.sz_right = (int) s_right;
-
-    // also get the color fitness
-    check_gate_free(img, previous_best_gate, &previous_best_gate.gate_q, &previous_best_gate.n_sides);
-
-    // if the quality of the "old" gate is better, keep the old gate:
-    if(previous_best_gate.gate_q > best_gate.gate_q &&  previous_best_gate.n_sides > 2)//n_sides
-    {
-      best_gate.x = previous_best_gate.x;
-      best_gate.y = previous_best_gate.y;
-      best_gate.sz = previous_best_gate.sz;
-      best_gate.sz_left = previous_best_gate.sz_left;
-      best_gate.sz_right = previous_best_gate.sz_right;
-      best_gate.gate_q = previous_best_gate.gate_q;
-      best_gate.n_sides = previous_best_gate.n_sides;
-    }
-  }
 
   // prepare for the next time:
   previous_best_gate.x = best_gate.x;
@@ -760,8 +876,14 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
   /**************************************
   * BEST GATE -> TRANSFORM TO COORDINATES
   ***************************************/
+  
+  //draw_gate_color(img, best_gate, blue_color);
 
   if (best_gate.gate_q > (min_gate_quality*2) && best_gate.n_sides > 3) {//n_sides was > 2
+    
+    
+    //sucessfull detection
+    last_frame_detection = 1;
 
     current_quality = best_quality;
     size_left = best_gate.sz_left;
@@ -778,403 +900,25 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 
         gate_gen = 1;//0;
         states_race.gate_detected = 1;
-        //draw_gate_color(img, best_gate, blue_color);
-	//draw_gate_polygon(img,points_x,points_y,blue_color);
+// draw_gate_color(img, best_gate, blue_color);
+	////draw_gate_polygon(img,points_x,points_y,blue_color);
 //draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,blue_color);
 	
-	//vector and matrix declarations
-	  struct FloatVect3 gate_point_0,gate_point_1,gate_point_2,
-	  p3p_pos_sol_0,p3p_pos_sol_1,p3p_pos_sol_2,p3p_pos_sol_3,p3p_pos_test;
-	  struct FloatMat33 R_mat_0,R_mat_1,R_mat_2,R_mat_3, R_test;
-	  struct FloatEulers R_eulers;
-	  
-	  struct FloatVect3 p3p_pos_sol[4];
-	  struct FloatVect3 gate_shift_points[4];
-	  struct FloatVect3 gate_shift_vec[4];
-	  struct FloatMat33 R_mat[4];
-	  //ransac 
-	  int ransac_error[4];
-	  float ransac_rep_error[4];
-	  struct FloatVect3 ransac_pos[4];
-	  struct FloatMat33 ransac_R_mat[4];
-	  
-	  VECT3_ASSIGN(gate_points[0], 4.2000,0.3000, -1.9000);
-	  VECT3_ASSIGN(gate_points[1], 4.2000,1.3000, -1.9000);
-	  VECT3_ASSIGN(gate_points[2], 4.2000,1.3000, -0.9000);
-	  VECT3_ASSIGN(gate_points[3], 4.2000,0.3000, -0.9000);
-	
-	//DEBUG----------------------------------------------------------------
-	
-	  VECT3_ASSIGN(p3p_pos_test, 2.295645,0.877159, -1.031926);
-	  
-	  MAT33_ELMT(R_test, 0, 0) = 0.999867;//(row,column)
-	  MAT33_ELMT(R_test, 0, 1) =  -0.015745;
-	  MAT33_ELMT(R_test, 0, 2) = -0.004201;
-
-	  MAT33_ELMT(R_test, 1, 0) = 0.015464;//(row,column)
-	  MAT33_ELMT(R_test, 1, 1) = 0.998070;
-	  MAT33_ELMT(R_test, 1, 2) = -0.060151;
-
-	  MAT33_ELMT(R_test, 2, 0) = 0.005140;//(row,column)
-	  MAT33_ELMT(R_test, 2, 1) = 0.060078;
-	  MAT33_ELMT(R_test, 2, 2) = 0.998180;
-// 	
-// 	  MAT33_ELMT(R_test, 0, 0) = 1;//(row,column)
-// 	  MAT33_ELMT(R_test, 0, 1) = 0;
-// 	  MAT33_ELMT(R_test, 0, 2) = 0;
-// 
-// 	  MAT33_ELMT(R_test, 1, 0) = 0;//(row,column)
-// 	  MAT33_ELMT(R_test, 1, 1) = 1;
-// 	  MAT33_ELMT(R_test, 1, 2) = 0;
-// 
-// 	  MAT33_ELMT(R_test, 2, 0) = 0;//(row,column)
-// 	  MAT33_ELMT(R_test, 2, 1) = 0;
-// 	  MAT33_ELMT(R_test, 2, 2) = 1;
-	  
-	int x_bp_corners[4];
-	int y_bp_corners[4];
-	float x_f_corners[4];
-	float y_f_corners[4];
-	float x_gate_corners[4];
-	float y_gate_corners[4];
-	
-	for(int i = 0;i<4;i++)
-	  {
-	    float x_bp;
-	    float y_bp;
-	    back_proj_points(&gate_points[i],&p3p_pos_test,&R_test,&x_bp,&y_bp);
-	    x_f_corners[i] = x_bp;
-	    y_f_corners[i] = y_bp;
-// 	    debug_1 = x_bp;
-// 	    debug_2 = y_bp;
-	  }
-	
-	//DEBUG---------------------------------------------------------------
-	
-	//draw_gate_polygon(img,best_gate.x_corners,best_gate.x_corners,blue_color);
-	
-	//Undistort fisheye points
-	int f_fisheye = 168;
-	float k_fisheye = 1.085;
-	float reprojection_error[4];
-	for(int i = 0;i<4;i++)
-	{
-	  float undist_x, undist_y;
-	  //debug_1 = (float)best_gate.x_corners[i];// best_gate.y_corners[i]
-	  //debug_2 = (float)best_gate.y_corners[i];//
-	  //undist_y = 5;//(float)best_gate.y_corners[i];
-	  float princ_x = 157.0;
-	  float princ_y = 32.0;
-	  undistort_fisheye_point(best_gate.x_corners[i] ,best_gate.y_corners[i],&undist_x,&undist_y,f_fisheye,k_fisheye,princ_x,princ_y);
-	  
-	  x_gate_corners[i] = undist_x+157.0;
-	  y_gate_corners[i] = undist_y+32.0;
-	  
-	  draw_cross(img,((int)x_gate_corners[i]),((int)y_gate_corners[i]),green_color);
-	  vec_from_point_ned(undist_x, undist_y, f_fisheye,&gate_vectors[i]);
-	  
-	   //debug_1 = undist_x;
- 	  //debug_2 = undist_y;
-	  
-// 	  draw_cross(img,(int)x_f_corners[i],(int)y_f_corners[i],green_color);
-// 	  vec_from_point_ned(x_f_corners[i]-157,y_f_corners[i]-32, f_fisheye,&gate_vectors[i]);
-	  
-	 // //vec_from_point_ned(x_f_corners[i]-157,y_f_corners[i]-32, f_fisheye,&vec_temp1);
-// 	  
-// 	  printf("vec_from_point:\n");
-// 	  print_vec(vec_temp1);
-// 	  
-// 	  VECT3_DIFF(vec_temp1,gate_points[i],p3p_pos_sol_0);
-// 	  double norm = sqrt(VECT3_NORM2(vec_temp1));
-// 	  VECT3_SDIV(gate_vectors[i], vec_temp1, norm);
-// 	  
-// 	  printf("gate_vectors[%d]:\n",i);
-// 	  print_vec(gate_vectors[i]);
-	  
-	  
-// 	  debug_1 = gate_vectors[i].x;
-// 	  debug_2 = gate_vectors[i].y;
-// 	  debug_3 = gate_vectors[i].z;
-	  
-	}
-	
-	int in_array[4] = {1, 2, 3, 4};
-	int shift_array[4];
-	int index = 0;
-	//circ shift for checking which triplet of points gives best solution after back projection
-	for(int s = 0;s<4;s++)
-	{
-	  for(int i = 0; i < 4;i++)
-	  {
-	    index = (i+s) % 4;
-	    shift_array[index] = in_array[i];
-	    gate_shift_points[index] = gate_points[i];
-	    gate_shift_vec[index] = gate_vectors[i];
-	  }
-	  printf("shift_n:%d\n",s);
-	  printf("shift_array{%d, %d, %d, %d} \n",shift_array[0],shift_array[1],shift_array[2],shift_array[3]);
-	  printf("gate_shift_points[%d] x:%f y:%f z%f\n",0,gate_shift_points[0].x,gate_shift_points[0].y,gate_shift_points[0].z);
-	  printf("gate_shift_points[%d] x:%f y:%f z%f\n",1,gate_shift_points[1].x,gate_shift_points[1].y,gate_shift_points[1].z);
-	  printf("gate_shift_points[%d] x:%f y:%f z%f\n",2,gate_shift_points[2].x,gate_shift_points[2].y,gate_shift_points[2].z);
-	  printf("gate_shift_points[%d] x:%f y:%f z%f\n",3,gate_shift_points[3].x,gate_shift_points[3].y,gate_shift_points[3].z);
-	
-	//}
-	
-	
-	 //p3p algorithm
-	
-	  
-// 	  P3p_computePoses(&gate_points[0],&gate_points[1],&gate_points[2],
-// 			   &gate_vectors[0],&gate_vectors[1],&gate_vectors[2],
-// 			   &p3p_pos_sol_0,&p3p_pos_sol_1,&p3p_pos_sol_2,&p3p_pos_sol_3,
-// 			   &R_mat_0,&R_mat_1,&R_mat_2,&R_mat_3);
-	  
-// 	  P3p_computePoses(&gate_points[0],&gate_points[1],&gate_points[2],
-// 			   &gate_vectors[0],&gate_vectors[1],&gate_vectors[2],
-// 			   &p3p_pos_sol[0],&p3p_pos_sol[1],&p3p_pos_sol[2],&p3p_pos_sol[3],
-// 			   &R_mat[0],&R_mat[1],&R_mat[2],&R_mat[3]);
-
-	  P3p_computePoses(&gate_shift_points[0],&gate_shift_points[1],&gate_shift_points[2],
-			   &gate_shift_vec[0],&gate_shift_vec[1],&gate_shift_vec[2],
-			   &p3p_pos_sol[0],&p3p_pos_sol[1],&p3p_pos_sol[2],&p3p_pos_sol[3],
-			   &R_mat[0],&R_mat[1],&R_mat[2],&R_mat[3]);
-	
-	  float_eulers_of_rmat(&R_eulers,&R_mat_0);
-	  
-	  //for all 4 solutions
-	  //{
-	  //proj_point(p3p_pos_sol_0,p3p_pos_sol_1,p3p_pos_sol_2,R_mat) //project 4 points based on position and rotation
-	  //}
-	  //best_solution_p3p()//sort error list and chose respective solution pos and R_mat
-	  //R_mat_to_angle()//from paparazzi
-	  
-// 	  VECT3_ASSIGN(p3p_pos_sol_0, 1.5000,0.8000, -1.4000);
-//	  VECT3_ASSIGN(p3p_pos_sol_0, 2.295645,0.877159, -1.031926);
-	  
-// 	  MAT33_ELMT(R_mat_0, 0, 0) = 1;//(row,column)
-// 	  MAT33_ELMT(R_mat_0, 0, 1) = 0;
-// 	  MAT33_ELMT(R_mat_0, 0, 2) = 0;
-// 
-// 	  MAT33_ELMT(R_mat_0, 1, 0) = 0;//(row,column)
-// 	  MAT33_ELMT(R_mat_0, 1, 1) = 1;
-// 	  MAT33_ELMT(R_mat_0, 1, 2) = 0;
-// 
-// 	  MAT33_ELMT(R_mat_0, 2, 0) = 0;//(row,column)
-// 	  MAT33_ELMT(R_mat_0, 2, 1) = 0;
-// 	  MAT33_ELMT(R_mat_0, 2, 2) = 1;
-	  
-// 	  MAT33_ELMT(R_mat_0, 0, 0) = 0.999867;//(row,column)
-// 	  MAT33_ELMT(R_mat_0, 0, 1) =  -0.015745;
-// 	  MAT33_ELMT(R_mat_0, 0, 2) = -0.004201;
-// 
-// 	  MAT33_ELMT(R_mat_0, 1, 0) = 0.015464;//(row,column)
-// 	  MAT33_ELMT(R_mat_0, 1, 1) = 0.998070;
-// 	  MAT33_ELMT(R_mat_0, 1, 2) = -0.060151;
-// 
-// 	  MAT33_ELMT(R_mat_0, 2, 0) = 0.005140;//(row,column)
-// 	  MAT33_ELMT(R_mat_0, 2, 1) = 0.060078;
-// 	  MAT33_ELMT(R_mat_0, 2, 2) = 0.998180;
-	  
-	  
-	  /*0.999867, -0.015745, -0.004201
-0.015464, 0.998070, -0.060151
-0.005140, 0.060078, 0.998180
-Position solution nr:1 /// x:2.295645 y:0.877159 z-1.031926*/
-	  
-// 	  	printf("R_mat_0:\n");
-//  		print_mat(R_mat_0);
-// 		printf("Position solution nr:%d /// x:%f y:%f z%f\n",0,p3p_pos_sol_0.x,p3p_pos_sol_0.y,p3p_pos_sol_0.z);
-// 		float_eulers_of_rmat(&R_eulers,&R_mat_0);
-// 		printf("Eulers_0 Phi:%f \n Theta: %f \n Psi: %f \n",(R_eulers.phi*57),(R_eulers.theta*57),(R_eulers.psi*57));
-// 		
-// 		printf("R_mat_1:\n");
-//  		print_mat(R_mat_1);
-// 		printf("Position solution nr:%d /// x:%f y:%f z%f\n",1,p3p_pos_sol_1.x,p3p_pos_sol_1.y,p3p_pos_sol_1.z);
-// 		float_eulers_of_rmat(&R_eulers,&R_mat_1);
-// 		printf("Eulers_1 Phi:%f \n Theta: %f \n Psi: %f \n",(R_eulers.phi*57),(R_eulers.theta*57),(R_eulers.psi*57));
-// 		
-// 		printf("R_mat_2:\n");
-//  		print_mat(R_mat_2);
-// 		printf("Position solution nr:%d /// x:%f y:%f z%f\n",2,p3p_pos_sol_2.x,p3p_pos_sol_2.y,p3p_pos_sol_2.z);
-// 		float_eulers_of_rmat(&R_eulers,&R_mat_2);
-// 		printf("Eulers_2 Phi:%f \n Theta: %f \n Psi: %f \n",(R_eulers.phi*57),(R_eulers.theta*57),(R_eulers.psi*57));
-// 		
-// 		
-// 		printf("R_mat_3:\n");
-//  		print_mat(R_mat_3);
-// 		printf("Position solution nr:%d /// x:%f y:%f z%f\n",3,p3p_pos_sol_3.x,p3p_pos_sol_3.y,p3p_pos_sol_3.z);
-// 		float_eulers_of_rmat(&R_eulers,&R_mat_3);
-// 		printf("Eulers_3 Phi:%f \n Theta: %f \n Psi: %f \n",(R_eulers.phi*57),(R_eulers.theta*57),(R_eulers.psi*57));
-// 		
-
-	  	
-// 		printf("Position solution nr:%d +++ x:%f y:%f z%f\n",0,p3p_pos_sol[0].x,p3p_pos_sol[0].y,p3p_pos_sol[0].z);
-// 		print_mat(R_mat[0]);
-// 		printf("Position solution nr:%d +++ x:%f y:%f z%f\n",1,p3p_pos_sol[1].x,p3p_pos_sol[1].y,p3p_pos_sol[1].z);
-// 		print_mat(R_mat[1]);
-// 		printf("Position solution nr:%d +++ x:%f y:%f z%f\n",2,p3p_pos_sol[2].x,p3p_pos_sol[2].y,p3p_pos_sol[2].z);
-// 		print_mat(R_mat[2]);
-// 		printf("Position solution nr:%d +++ x:%f y:%f z%f\n",3,p3p_pos_sol[3].x,p3p_pos_sol[3].y,p3p_pos_sol[3].z);
-// 		print_mat(R_mat[3]);
-		
-	
-	  reprojection_error[0] = 0;
-	  for(int i = 0;i<4;i++)
-	  {
-	    float x_bp;
-	    float y_bp;
-	    back_proj_points(&gate_points[i],&p3p_pos_sol[0],&R_mat[0],&x_bp,&y_bp);
-	    x_bp_corners[i] = (int)x_bp;
-	    y_bp_corners[i] = (int)y_bp;
-	    reprojection_error[0] += euclidean_distance(x_gate_corners[i], x_bp_corners[i],y_gate_corners[i],y_bp_corners[i]);
-// 	    debug_1 = x_bp;
-// 	    debug_2 = y_bp;
-	  }
-	  printf("reprojection_error[0]:%f\n",reprojection_error[0]);
-	  //draw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);
-	  
-	  reprojection_error[1] = 0;
-	  for(int i = 0;i<4;i++)
-	  {
-	    float x_bp;
-	    float y_bp;
-	    back_proj_points(&gate_points[i],&p3p_pos_sol[1],&R_mat[1],&x_bp,&y_bp);
-	    x_bp_corners[i] = (int)x_bp;
-	    y_bp_corners[i] = (int)y_bp;
-	    reprojection_error[1] += euclidean_distance(x_gate_corners[i], x_bp_corners[i],y_gate_corners[i],y_bp_corners[i]);
-	  }
-	  printf("reprojection_error[1]:%f\n",reprojection_error[1]);
-	  //raw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);
-	  
-	  reprojection_error[2] = 0;
-	  for(int i = 0;i<4;i++)
-	  {
-	    float x_bp;
-	    float y_bp;
-	    back_proj_points(&gate_points[i],&p3p_pos_sol[2],&R_mat[2],&x_bp,&y_bp);
-	    x_bp_corners[i] = (int)x_bp;
-	    y_bp_corners[i] = (int)y_bp;
-	    reprojection_error[2] += euclidean_distance(x_gate_corners[i], x_bp_corners[i],y_gate_corners[i],y_bp_corners[i]);
-	  }
-	  printf("reprojection_error[2]:%f\n",reprojection_error[2]);
-	  //draw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);
-	  
-	  reprojection_error[3] = 0;
-	  for(int i = 0;i<4;i++)
-	  {
-	    float x_bp;
-	    float y_bp;
-	    back_proj_points(&gate_points[i],&p3p_pos_sol[3],&R_mat[3],&x_bp,&y_bp);
-	    x_bp_corners[i] = (int)x_bp;
-	    y_bp_corners[i] = (int)y_bp;
-	    reprojection_error[3] += euclidean_distance(x_gate_corners[i], x_bp_corners[i],y_gate_corners[i],y_bp_corners[i]);
-	  }
-	  printf("reprojection_error[3]:%f\n",reprojection_error[3]);
-	  //draw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);
-	  
-	 
-	  int min_loc = find_minimum(reprojection_error);
-	  ransac_rep_error[s] = reprojection_error[min_loc];
-	  ransac_error[s] = min_loc;
-	  ransac_pos[s] = p3p_pos_sol[min_loc];
-	  ransac_R_mat[s] = R_mat[min_loc];
-	  
-	}
-	  
-	  int best_loc = find_minimum(ransac_error);
-	  //best_loc = 3;
-	  printf("Minimum error at solution:%d\n",best_loc);
-	  printf("Minimum error in pixels:%f\n",ransac_rep_error[best_loc]);
-	  printf("POSITION:\n X:%f\n Y:%f\n Z:%f\n",ransac_pos[best_loc].x,ransac_pos[best_loc].y,ransac_pos[best_loc].z);
-	  	 
-	  
-	  for(int i = 0;i<4;i++)
-	  {
-	    float x_bp;
-	    float y_bp;
-	    back_proj_points(&gate_points[i],&ransac_pos[best_loc],&ransac_R_mat[best_loc],&x_bp,&y_bp);
-	    x_bp_corners[i] = (int)x_bp;
-	    y_bp_corners[i] = (int)y_bp;
-	  }
-	  
-	  
-	  //gate size check by calculating total length of elements between polygon gate
-	  //then determining error bound as function of gate size: larger gate -> higher error bound
-	  float gate_size_polygon =  euclidean_distance(x_gate_corners[0], x_gate_corners[1],y_gate_corners[0],y_gate_corners[1]);
-	  gate_size_polygon +=  euclidean_distance(x_gate_corners[1], x_gate_corners[2],y_gate_corners[1],y_gate_corners[2]);
-	  gate_size_polygon +=  euclidean_distance(x_gate_corners[2], x_gate_corners[3],y_gate_corners[2],y_gate_corners[3]);
-	  gate_size_polygon +=  euclidean_distance(x_gate_corners[3], x_gate_corners[0],y_gate_corners[3],y_gate_corners[0]);
-	  
-	  float error_factor =  ransac_rep_error[best_loc]/gate_size_polygon;//ration between gate size and reprojection error
-	  printf("error_factor:%f\n",error_factor);
-	  if(error_factor < 0.07)
-	  {
-	    draw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);//if low enough plot green gate
-	  
-	    float_eulers_of_rmat(&R_eulers,&ransac_R_mat[best_loc]);
-	    printf("Eulers Phi:%f \n Theta: %f \n Psi: %f \n",(R_eulers.phi*57),(R_eulers.theta*57),(R_eulers.psi*57));
-	  }
-	  
-	  //if(ransac_rep_error[best_loc] < 25) draw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);
-// 	  printf("POSITION:\n X:%f\n Y:%f\n Z:%f\n",p3p_pos_sol[min_loc].x,p3p_pos_sol[min_loc].y,p3p_pos_sol[min_loc].z);
-	  //print best gate
-// 	  for(int i = 0;i<4;i++)
-// 	  {
-// 	    float x_bp;
-// 	    float y_bp;
-// 	    back_proj_points(&gate_points[i],&p3p_pos_sol[min_loc],&R_mat[min_loc],&x_bp,&y_bp);
-// 	    x_bp_corners[i] = (int)x_bp;
-// 	    y_bp_corners[i] = (int)y_bp;
-// 	  }
-// 	  draw_gate_polygon(img,x_bp_corners,y_bp_corners,blue_color);
-	 
-	
-	    //error tests
-	// reference vectors
-	
-// 	vec_ver_1.x = 200;
-// 	vec_ver_1.y = -100;
-// 	vec_ver_1.z = 72;
-// 	
-// 	vec_ver_2.x = 200;
-// 	vec_ver_2.y = 0;
-// 	vec_ver_2.z = 72;
-// 	
-// 	vec_ver_3.x = 200;
-// 	vec_ver_3.y = 0;
-// 	vec_ver_3.z = -28;
-// 	
-// 	vec_ver_4.x = 200;
-// 	vec_ver_4.y = -100;
-// 	vec_ver_4.z = -28;
-// 	
-// 	double dot = VECT3_DOT_PRODUCT(vec_ver_1, gate_vectors[0]);
-// 	float norm_a = sqrtf(VECT3_NORM2(vec_ver_1));
-// 	float norm_b = sqrtf(VECT3_NORM2(gate_vectors[0]));
-// 	
-// 	float angle_error_dot = acosf((float)dot/(norm_a*norm_b));
-// 	debug_1 = angle_error_dot*57;
-// 	
-// 	 dot = VECT3_DOT_PRODUCT(vec_ver_2, gate_vectors[1]);
-// 	 norm_a = sqrtf(VECT3_NORM2(vec_ver_2));
-// 	 norm_b = sqrtf(VECT3_NORM2(gate_vectors[1]));
-// 	
-// 	 angle_error_dot = acosf((float)dot/(norm_a*norm_b));
-// 	 debug_2 = angle_error_dot*57;
-// 	 
-// 	 dot = VECT3_DOT_PRODUCT(vec_ver_3, gate_vectors[2]);
-// 	 norm_a = sqrtf(VECT3_NORM2(vec_ver_3));
-// 	 norm_b = sqrtf(VECT3_NORM2(gate_vectors[2]));
-// 	
-// 	 angle_error_dot = acosf((float)dot/(norm_a*norm_b));
-// 	 debug_3 = angle_error_dot*57;
-	
+// 	if(repeat_gate == 0){
+// 	  draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,blue_color);
+// 	}
+// 	else if(repeat_gate == 1){
+// 	  draw_gate_polygon(img,best_gate.x_corners,best_gate.y_corners,green_color);
+// // 	  for(int i = 0;i < 3;i++){
+// // 	    draw_cross(img,last_gate.x_corners[i],last_gate.y_corners[i],blue_color);
+// // 	  }
+// 	}
 	
 	
     
   } else {
 
-     
+     last_frame_detection = 0;
       states_race.gate_detected = 0;
       current_quality = 0;
       gate_gen = 1;
@@ -1343,6 +1087,57 @@ void draw_gate(struct image_t *im, struct gate_img gate)
   struct point_t from, to;
   if (gate.sz_left == gate.sz_right) {
     // square
+    from.y = (gate.x - gate.sz);
+    from.x = gate.y - gate.sz;
+    to.y = (gate.x - gate.sz);
+    to.x = gate.y + gate.sz;
+    image_draw_line(im, &from, &to);
+    from.y = (gate.x - gate.sz);
+    from.x = gate.y + gate.sz;
+    to.y = (gate.x + gate.sz);
+    to.x = gate.y + gate.sz;
+    image_draw_line(im, &from, &to);
+    from.y = (gate.x + gate.sz);
+    from.x = gate.y + gate.sz;
+    to.y = (gate.x + gate.sz);
+    to.x = gate.y - gate.sz;
+    image_draw_line(im, &from, &to);
+    from.y = (gate.x + gate.sz);
+    from.x = gate.y - gate.sz;
+    to.y = (gate.x - gate.sz);
+    to.x = gate.y - gate.sz;
+    image_draw_line(im, &from, &to);
+  } else {
+    // polygon
+    from.x = (gate.x - gate.sz);
+    from.y = gate.y - gate.sz_left;
+    to.x = (gate.x - gate.sz);
+    to.y = gate.y + gate.sz_left;
+    image_draw_line(im, &from, &to);
+    from.x = (gate.x - gate.sz);
+    from.y = gate.y + gate.sz_left;
+    to.x = (gate.x + gate.sz);
+    to.y = gate.y + gate.sz_right;
+    image_draw_line(im, &from, &to);
+    from.x = (gate.x + gate.sz);
+    from.y = gate.y + gate.sz_right;
+    to.x = (gate.x + gate.sz);
+    to.y = gate.y - gate.sz_right;
+    image_draw_line(im, &from, &to);
+    from.x = (gate.x + gate.sz);
+    from.y = gate.y - gate.sz_right;
+    to.x = (gate.x - gate.sz);
+    to.y = gate.y - gate.sz_left;
+    image_draw_line(im, &from, &to);
+  }
+}
+
+void draw_gate_old(struct image_t *im, struct gate_img gate)
+{
+  // draw four lines on the image:
+  struct point_t from, to;
+  if (gate.sz_left == gate.sz_right) {
+    // square
     from.x = (gate.x - gate.sz);
     from.y = gate.y - gate.sz;
     to.x = (gate.x - gate.sz);
@@ -1389,6 +1184,68 @@ void draw_gate(struct image_t *im, struct gate_img gate)
 }
 
 void draw_gate_color(struct image_t *im, struct gate_img gate, uint8_t* color)
+{
+  
+  
+  // draw four lines on the image:
+  struct point_t from, to;
+  if (gate.sz_left == gate.sz_right) {
+    // square
+    from.y = (gate.x - gate.sz);
+    from.x = gate.y - gate.sz;
+    to.y = (gate.x - gate.sz);
+    to.x = gate.y + gate.sz;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+    from.y = (gate.x - gate.sz);
+    from.x = gate.y + gate.sz;
+    to.y = (gate.x + gate.sz);
+    to.x = gate.y + gate.sz;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+    from.y = (gate.x + gate.sz);
+    from.x = gate.y + gate.sz;
+    to.y = (gate.x + gate.sz);
+    to.x = gate.y - gate.sz;
+    image_draw_line_color(im, &from, &to, color);
+    // draw_line_segment(im, from, to, color);
+    from.y = (gate.x + gate.sz);
+    from.x = gate.y - gate.sz;
+    to.y = (gate.x - gate.sz);
+    to.x = gate.y - gate.sz;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+  } else {
+    // polygon
+    from.x = (gate.x - gate.sz);
+    from.y = gate.y - gate.sz_left;
+    to.x = (gate.x - gate.sz);
+    to.y = gate.y + gate.sz_left;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+    from.x = (gate.x - gate.sz);
+    from.y = gate.y + gate.sz_left;
+    to.x = (gate.x + gate.sz);
+    to.y = gate.y + gate.sz_right;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+    from.x = (gate.x + gate.sz);
+    from.y = gate.y + gate.sz_right;
+    to.x = (gate.x + gate.sz);
+    to.y = gate.y - gate.sz_right;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+    from.x = (gate.x + gate.sz);
+    from.y = gate.y - gate.sz_right;
+    to.x = (gate.x - gate.sz);
+    to.y = gate.y - gate.sz_left;
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+  }
+}
+
+
+void draw_gate_color_old(struct image_t *im, struct gate_img gate, uint8_t* color)
 {
   
   
@@ -1480,6 +1337,43 @@ void draw_cross(struct image_t *im,int x, int y, uint8_t* color)
 }
 
 void draw_gate_polygon(struct image_t *im, int *x_points, int *y_points, uint8_t* color)
+{
+  
+  
+  // draw four lines on the image:
+  struct point_t from, to;
+  
+    //polygon
+    from.y = x_points[0];
+    from.x = y_points[0];
+    to.y = x_points[1];
+    to.x = y_points[1];
+    image_draw_line_color(im, &from, &to, color);
+   //draw_cross(im,x_points[0],y_points[0],green_color);
+    //draw_line_segment(im, from, to, color);
+    from.y = x_points[1];
+    from.x = y_points[1];
+    to.y = x_points[2];
+    to.x = y_points[2];
+    image_draw_line_color(im, &from, &to, color);
+   //draw_cross(im,x_points[1],y_points[1],green_color);
+    from.y = x_points[2];
+    from.x = y_points[2];
+    to.y = x_points[3];
+    to.x = y_points[3];
+    image_draw_line_color(im, &from, &to, color);
+   //draw_cross(im,x_points[2],y_points[2],green_color);
+    // draw_line_segment(im, from, to, color);
+    from.y = x_points[3];
+    from.x = y_points[3];
+    to.y = x_points[0];
+    to.x = y_points[0];
+    image_draw_line_color(im, &from, &to, color);
+    //draw_line_segment(im, from, to, color);
+  
+}
+
+void draw_gate_polygon_old(struct image_t *im, int *x_points, int *y_points, uint8_t* color)
 {
   
   
@@ -1816,7 +1710,52 @@ void check_line(struct image_t *im, struct point_t Q1, struct point_t Q2, int *n
   }
 }
 
+
 void snake_up_and_down(struct image_t *im, int x, int y, int *y_low, int *y_high)
+{
+  int done = 0;
+  int x_initial = x;
+  (*y_low) = y;
+
+  // snake towards negative y (down?)
+  while ((*y_low) > 0 && !done) {
+    if (check_color(im, x, (*y_low) - 1)) {
+      (*y_low)--;
+
+    } else if (x+1 < im->w && check_color(im, x + 1, (*y_low) - 1)) {
+      x++;
+      (*y_low)--;
+    } else if (x-1 >= 0 && check_color(im, x - 1, (*y_low) - 1)) {
+      x--;
+      (*y_low)--;
+    } else {
+      done = 1;
+    }
+  }
+
+  x = x_initial;
+  (*y_high) = y;
+  done = 0;
+  // snake towards positive y (up?)
+  // while ((*y_high) < im->h - 1 && !done) {
+  while ((*y_high) < im->w - 1 && !done) {
+
+    if (check_color(im, x, (*y_high) + 1)) {
+      (*y_high)++;
+    //    } else if (x < im->w - 1 && check_color(im, x + 1, (*y_high) + 1)) {
+    } else if (x < im->w - 1 && check_color(im, x + 1, (*y_high) + 1)) {
+      x++;
+      (*y_high)++;
+    } else if (x > 0 && check_color(im, x - 1, (*y_high) + 1)) {
+      x--;
+      (*y_high)++;
+    } else {
+      done = 1;
+    }
+  }
+}
+
+void snake_up_and_down_old(struct image_t *im, int x, int y, int *y_low, int *y_high)
 {
   int done = 0;
   int x_initial = x;
@@ -1871,7 +1810,7 @@ void snake_left_and_right(struct image_t *im, int x, int y, int *x_low, int *x_h
     if (check_color(im, (*x_low) - 1, y)) {
       (*x_low)--;  
     // } else if (y < im->h - 1 && check_color(im, (*x_low) - 1, y + 1)) {
-    } else if (y < im->w - 1 && check_color(im, (*x_low) - 1, y + 1)) {
+    } else if (y < im->h - 1 && check_color(im, (*x_low) - 1, y + 1)) {
       y++;
       (*x_low)--;
     } else if (y > 0 && check_color(im, (*x_low) - 1, y - 1)) {
@@ -1892,7 +1831,7 @@ void snake_left_and_right(struct image_t *im, int x, int y, int *x_low, int *x_h
     if (check_color(im, (*x_high) + 1, y)) {
       (*x_high)++;
     // } else if (y < im->h - 1 && check_color(im, (*x_high) + 1, y++)) {
-    } else if (y < im->w - 1 && check_color(im, (*x_high) + 1, y++)) {
+    } else if (y < im->h - 1 && check_color(im, (*x_high) + 1, y++)) {
       y++;
       (*x_high)++;
     } else if (y > 0 && check_color(im, (*x_high) + 1, y - 1)) {

@@ -15,8 +15,8 @@
 		<!--define name="GPS_TIMEOUT" value="1"/-->
 		<define name="H264_ROTATE" value="TRUE" />
 		<define name="MT9F002_SENSOR_WIDTH" value="1920" />
-		<define name="MT9F002_OUTPUT_WIDTH" value="480" /> <!-- 480 /480 / 960 / 1920 / 3840 -->
-		<define name="MT9F002_OUTPUT_HEIGHT" value="828" /> <!-- 828 /414 / 828 / 1656 / 3312 -->
+		<define name="MT9F002_OUTPUT_WIDTH" value="480" /> <!--256/ 240/ 480 /480 / 960 / 1920 / 3840 -->
+		<define name="MT9F002_OUTPUT_HEIGHT" value="828" /> <!-- 432/400/ 828 /414 / 828 / 1656 / 3312 -->
 		<define name="MT9F002_TARGET_FPS" value="30" />
 		<define name="MT9F002_TARGET_EXPOSURE" value="4" />
 		<define name="MT9F002_GAIN_GREEN1" value="2.7" />
@@ -84,14 +84,19 @@
 
     		<module name="cv_ae_awb">
 			<define name="CV_AE_AWB_AV" value="1" />
-			<define name="CV_AE_AWB_VERBOSE" value="0" />
+			<define name="CV_AE_AWB_MU" value="0.8" />
 		</module>
 		<module name="cv_bebop_camera_stabilization">
 			<define name="CAM_STAB_CAMERA"    value="front_camera" />
 		</module>
-		<module name="cv_active_random_filter">
+		   <!--module name="cv_opticflow">
+		      <define name="OPTICFLOW_CAMERA" value="front_camera"/>
+		      
+		    </module-->
+
+		<!--module name="cv_active_random_filter">
 			<define name="AR_FILTER_CAMERA"    value="front_camera" />
-		</module>
+		</module-->
 
 		<!--module name="cv_colorfilter">
 			<define name="COLORFILTER_CAMERA"    value="front_camera" />
@@ -101,9 +106,9 @@
 			<define name="SGD_CAMERA" value="front_camera"/>
 		</module-->
 
-		<!--module name="cv_snake_gate_detection">
+		<module name="cv_snake_gate_detection">
 			<define name="SGD_CAMERA" value="front_camera"/>
-		</module-->
+		</module>
 
 		<!--module name="autoswarm">
 			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />
