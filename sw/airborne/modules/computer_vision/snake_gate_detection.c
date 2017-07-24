@@ -323,9 +323,9 @@ float Q_mat[2][2] = {  //try 0.5?
 //    {0, 0.2}  
 // };
 
-float R_k[2][2] = {  //try other?
-   {0.2, 0} ,  
-   {0, 0.2}  
+float R_k[2][2] = {  //try other? was 0.2
+   {0.5, 0} ,  
+   {0, 0.5}  
 };
 
 //output mat
@@ -395,6 +395,10 @@ int hist_sample = 0;
 
 float x_pos_hist = 0;
 float y_pos_hist = 0;
+
+//DEBUG sides 
+int side_1 = 0;
+int side_2 = 0;
 
 static void snake_gate_send(struct transport_tx *trans, struct link_device *dev)
 {
@@ -712,6 +716,7 @@ void snake_gate_periodic(void)
       if(hist_sample){
 	local_x = gate_dist_x - x_pos_hist;
 	local_y = y_pos_hist;
+	hist_sample = 0; //only use hist sample once
       }else{
 	local_x = ls_pos_x;
 	local_y = ls_pos_y;
@@ -719,7 +724,7 @@ void snake_gate_periodic(void)
       
       //transform to global frame, depending on heading(later depending on which part of the track)
       if(stateGetNedToBodyEulers_f()->psi > 1.6 || stateGetNedToBodyEulers_f()->psi < -1.6){
-	trans_x = 3.5-local_x;//was 3.0
+	trans_x = 3.0-local_x;//was 3.0
 	trans_y = 3.2 -local_y;//was 3.0 +0.15;//correction factor??
       }else{
 	trans_x = local_x;
@@ -730,7 +735,7 @@ void snake_gate_periodic(void)
       
       if(0){//hist_sample){
 	debug_3 = trans_x;
-	debug_4 = trans_y;
+	//debug_4 = trans_y;
       }
       inn_vec[0][0] = trans_x-X_int[0][0];
       inn_vec[1][0] = trans_y-X_int[1][0];
@@ -957,7 +962,7 @@ float detect_gate_sides(int *hist_raw, int *side_1, int *side_2){
     
     //avarage peek height
     float peek_value = (hist_peeks[index[313]] + hist_peeks[index[314]])/2;
-    debug_5 = peek_value;
+    debug_5 = x_pos_hist;//peek_value;
   
 //     for(int i = 0;i<315;i++){
 //     printf("hist_peeks[%d]:%d\n",i,hist_peeks[i]);
@@ -1343,9 +1348,6 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
   }
   
   
-  int side_1;
-  int side_2;
-  
   float hist_peek_value = detect_gate_sides(histogram,&side_1, &side_2);
   
   printf("side_1[%d] side_2[%d]\n",side_1,side_2);
@@ -1357,9 +1359,9 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
   int f_fisheye = 168;
   
   //float psi_comp = stateGetNedToBodyEulers_f()->psi;
-  undistort_fisheye_point(side_1 ,princ_y,&undist_x,&undist_y,f_fisheye,1.150,princ_x,princ_y);
+  undistort_fisheye_point(side_1 ,princ_y,&undist_x,&undist_y,f_fisheye,0.950,princ_x,princ_y);
   float side_angle_1 = atanf(undist_x/f_fisheye)+local_psi;
-  undistort_fisheye_point(side_2 ,princ_y,&undist_x,&undist_y,f_fisheye,1.150,princ_x,princ_y);
+  undistort_fisheye_point(side_2 ,princ_y,&undist_x,&undist_y,f_fisheye,0.950,princ_x,princ_y);
   float side_angle_2 = atanf(undist_x/f_fisheye)+local_psi;
   
   float b = (tanf(side_angle_2)*tanf(side_angle_1))/((tanf(side_angle_1)-tanf(side_angle_2))*tanf(side_angle_1)); //tanf(side_angle_1)/(tanf(side_angle_2)-tanf(side_angle_1));
@@ -1516,7 +1518,7 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
 	//DEBUG---------------------------------------------------------------
 	
 	//Undistort fisheye points
-	float k_fisheye = 1.085;
+	float k_fisheye = 1.150;
 	float reprojection_error[4];
 		
 	struct FloatRMat R,R_20,R_trans,Q_mat,I_mat, temp_mat, temp_mat_2;
@@ -1784,7 +1786,7 @@ float euclidean_distance(float x_i, float x_bp, float y_i, float y_bp)
   return dist;
 }
 
-void undistort_fisheye_point(int point_x, int point_y, float *undistorted_x, float *undistorted_y, int f, float k, float x_img_center, float y_img_center)
+void undistort_fisheye_point(int point_x, int point_y, float *undistorted_x, float *undistorted_y, int f, float k_fish, float x_img_center, float y_img_center)
 {
   /*
 f = 168;
@@ -1818,11 +1820,10 @@ k = 1.085;
   //k = 1.500;
   //////////
   //1.150 used in matlab
-  k = 1.150;
+  //k = 1.150;
   //k = 1.218;
-  
   //radial distortion correction
-  float R = (float)f*tan(asin(sin( atan(r/(float)f))*k));
+  float R = (float)f*tan(asin(sin( atan(r/(float)f))*k_fish));
   
                                                   // +y
                                                   // ^

@@ -46,13 +46,14 @@
 // #define MAX_PHI  20.0/180*3.14
 
 //Optitrack
-// #define KP_Y 0.4 
-// #define KI_Y 0.0
-// #define KD_Y 0.2
-
-#define KP_Y 0.40 //was 0.4
+#define KP_Y 0.4 
 #define KI_Y 0.0
-#define KD_Y 0.04/////0.10//was0.15// 0.2
+#define KD_Y 0.2
+
+/*#define KP_Y 0.40 //was 0.4
+#define KI_Y 0.0
+#define KD_Y 0.08*/ //was 0.04/////0.10//was0.15// 0.2
+
 #define MAX_PHI  30.0/180*3.14//was 15 then 25 deg
 
 //most turns until now
@@ -161,7 +162,7 @@ bool go_straight(float theta,float distance,double ref_y){
 
 	float current_y;
 	float sign = 1;
-	int use_optitrack = 0;//else use vision
+	int use_optitrack = 1;//else use vision
 	if(ref_y > 1.5){
 	 sign = -1;
 	 if(use_optitrack){

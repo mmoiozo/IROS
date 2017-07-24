@@ -124,7 +124,7 @@ void file_logger_periodic(void)
   static uint32_t counter;
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
 //flow_v_x,flow_v_y,body_v_x,body_v_y                                                    //%f,%f,%f,
-  fprintf(file_logger, "%d, %f, %d,%d,%d,%d,%d,%d,%d,%d,%d, %f,%f,%f, %f,%f,%f,%f,%f,%f, %d,  %f,%f,%f, %d,%d, %d,%d,%d,%d,%d,%d,%d,%d,%d, %f,%f,%f,%f,%f,%f,%f,%f, %f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f\n",
+  fprintf(file_logger, "%d, %f, %d,%d,%d,%d,%d,%d,%d,%d,%d, %f,%f,%f, %f,%f,%f,%f,%f,%f, %d,  %f,%f,%f, %d,%d, %d,%d,%d,%d,%d,%d,%d,%d,%d, %f,%f,%f,%f,%f,%f,%f,%f, %f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f, %d,%d \n",
 
           counter,
 	  
@@ -208,7 +208,10 @@ void file_logger_periodic(void)
 	  kf_vel_y,
 	  x_pos_hist,
 	  y_pos_hist,
-	  gate_quality
+	  gate_quality,
+	  
+	  side_1,
+	  side_2
 
          );
   counter++;
