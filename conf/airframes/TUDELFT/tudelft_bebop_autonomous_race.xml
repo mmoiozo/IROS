@@ -17,7 +17,10 @@
     <!--define name="USE_SONAR" value="TRUE"/-->
 
 	<define name="MT9F002_OUTPUT_WIDTH" value="480"/><!--160-->
+	<define name="SNAKE_GATE_WIDTH" value="MT9F002_OUTPUT_WIDTH"/><!--160-->
+        
 	<define name="MT9F002_OUTPUT_HEIGHT" value="640"/><!--315-->
+        <define name="SNAKE_GATE_HEIGHT" value="MT9F002_OUTPUT_HEIGHT"/><!--315-->
 
 	<define name="MT9F002_OUTPUT_SCALER" value="0.250"/>
 	<define name="MT9F002_INITIAL_OFFSET_X" value="1580"/>      <!--1280--><!--2050--><!--2034-->

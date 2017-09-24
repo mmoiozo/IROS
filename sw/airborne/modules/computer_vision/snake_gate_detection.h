@@ -31,6 +31,17 @@
 #include "math/pprz_algebra.h"
 #include "math/pprz_algebra_float.h"
 
+#include "generated/airframe.h"
+
+#ifndef SNAKE_GATE_WIDTH 
+#error "Please define SNAKE_GATE_WIDTH in your airframe file"
+#endif
+
+#ifndef SNAKE_GATE_HEIGHT 
+#error "Please define SNAKE_GATE_HEIGHT in your airframe file"
+#endif
+
+
 // /* Gate structure */
 // struct gate_img {
 //   int x;             ///< The image x coordinate of the gate center

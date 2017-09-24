@@ -48,6 +48,20 @@ int szx2 = 0;
 // int x = 0;
 // int y = 0;
 
+float original_height_calibration = 315.0f;
+float size_factor_height = SNAKE_GATE_HEIGHT / original_height_calibration;
+float princ_x = size_factor_height * 157.0f;
+float princ_y = size_factor_height * 32.0f;
+int f_fisheye = (int) (size_factor_height * 168.0f);
+// old settings:
+// float princ_x = 157.0f;
+// float princ_y = 32.0f;
+// int f_fisheye = 168;
+float k_fisheye = 1.150;
+float k_fisheye_2 = 1.085;
+
+
+
 
 // Result
 #define MAX_GATES 50
@@ -66,10 +80,6 @@ float size_right = 0;
 uint8_t y_center_picker  = 0;
 uint8_t cb_center  = 0;
 uint8_t cr_center  = 0;
-
-//camera parameters
-#define radians_per_pix_w 0.006666667//2.1 rad(60deg)/315
-#define radians_per_pix_h 0.0065625 //1.05rad / 160
 
 //pixel distance conversion
 int16_t pix_x = 0;
@@ -160,19 +170,19 @@ int cmp_i(const void *a, const void *b){
 }
 
 
-void smooth_hist(int *smooth, int *raw_hist, int window){
+void smooth_hist(int *smooth, int *raw_hist, int window, int im_width){
   
   //start and end of hist padding
   for(int i = 0;i<window;i++){
     smooth[i] = 0;
   }
   
-  for(int i = 315-window;i<315;i++){
+  for(int i = SNAKE_GATE_HEIGHT-window;i<SNAKE_GATE_HEIGHT;i++){
     smooth[i] = 0;
   }
   
   //avarage over 2 times window size
-  for(int i = window;i<315-window;i++){
+  for(int i = window;i<SNAKE_GATE_HEIGHT-window;i++){
     float sum = 0;
     for(int c = -window;c<window;c++){
       sum += raw_hist[i+c];
@@ -185,7 +195,7 @@ void smooth_hist(int *smooth, int *raw_hist, int window){
 
 int find_max_hist(int *hist){
   int max = 0;
-  for(int i = 0;i<315;i++){
+  for(int i = 0;i<SNAKE_GATE_HEIGHT;i++){
     if(hist[i]>max)max = hist[i];
   }
   return max;
@@ -194,7 +204,7 @@ int find_max_hist(int *hist){
 int find_hist_peeks(float *hist,int *peeks){
   int peek_count = 0;
   peeks[0] = 0;
-  for(int i = 1;i<314;i++){
+  for(int i = 1;i<SNAKE_GATE_HEIGHT-1;i++){
     if(hist[i] > hist[i-1] && hist[i] > hist[i+1]){
       peeks[i] = hist[i];
       
@@ -214,9 +224,9 @@ int find_hist_peeks_flat(int *hist,int *peeks){
   int last_sign = 0;
   int last_idx = 0;
   
-  memset(peeks,0,315*sizeof(int));//no peeks found yet
+  memset(peeks,0,SNAKE_GATE_HEIGHT*sizeof(int));//no peeks found yet
   
-  for(int i = 1;i<314;i++){
+  for(int i = 1;i<SNAKE_GATE_HEIGHT-1;i++){
     
     int sign = hist[i] - hist[i-1];//positive up backwards difference
     
@@ -255,19 +265,19 @@ void print_sides(struct image_t *im, int side_1, int side_2){
     from.x = side_1;
     from.y = 0;
     to.x = side_1;
-    to.y = 160;
+    to.y = SNAKE_GATE_WIDTH;
     image_draw_line(im, &from, &to);
     from.x = side_2;
     from.y = 0;
     to.x = side_2;
-    to.y = 160;
+    to.y = SNAKE_GATE_WIDTH;
     image_draw_line(im, &from, &to);
   
 }
 
 float detect_gate_sides(int *hist_raw, int *side_1, int *side_2){
-  int hist_peeks[315];//max nr of peeks, for sure
-  int hist_smooth[315];
+  int hist_peeks[SNAKE_GATE_HEIGHT];//max nr of peeks, for sure
+  int hist_smooth[SNAKE_GATE_HEIGHT];
   smooth_hist(hist_smooth, hist_raw, 4);//was 10
   int peek_count = find_hist_peeks_flat(hist_smooth,hist_peeks);
   int max_peek = find_max_hist(hist_raw);
@@ -287,25 +297,18 @@ float detect_gate_sides(int *hist_raw, int *side_1, int *side_2){
   //     }
     
   //side 1 is left side
-    if(index[313] < index[314]){
-      *side_1 = index[313];
-      *side_2 = index[314];
+    if(index[SNAKE_GATE_HEIGHT-2] < index[SNAKE_GATE_HEIGHT-1]){
+      *side_1 = index[SNAKE_GATE_HEIGHT-2];//313
+      *side_2 = index[SNAKE_GATE_HEIGHT-1];//314
     }else{
-      *side_1 = index[314];
-      *side_2 = index[313];
+      *side_1 = index[SNAKE_GATE_HEIGHT-1];//314
+      *side_2 = index[SNAKE_GATE_HEIGHT-2];//313
     }
     
     //avarage peek height
-    float peek_value = (hist_peeks[index[313]] + hist_peeks[index[314]])/2;
+    float peek_value = (hist_peeks[index[SNAKE_GATE_HEIGHT-2]] + hist_peeks[index[SNAKE_GATE_HEIGHT-1]])/2;
     //debug_5 = peek_value;
   
-//     for(int i = 0;i<315;i++){
-//     printf("hist_peeks[%d]:%d\n",i,hist_peeks[i]);
-//     }
- 
-//     for(int i = 0;i<315;i++){
-//       printf("hist_raw[%d]:%d hist_smooth[%d]:%d hist_peeks[%d]:%d\n",i,hist_raw[i],i,hist_smooth[i],i,hist_peeks[i]);
-//     }
     return peek_value;
 
 }
@@ -324,7 +327,7 @@ int closed_gate_processing(struct image_t *img){
   n_gates = 0;
   
   //histogram for final approach gate detection
-  int histogram[315] = {0};
+  int histogram[SNAKE_GATE_HEIGHT] = {0};
   
   for (int i = 0; i < n_samples; i++) {
     // get a random coordinate:
@@ -652,14 +655,17 @@ int closed_gate_processing(struct image_t *img){
   
   //transform to angles in image frame, ignoring tilt angle of 20 deg
   float undist_x, undist_y;
-  float princ_x = 157.0;
-  float princ_y = 32.0;
-  int f_fisheye = 168;
+  /*float original_height_calibration = 315.0f;
+  float size_factor_height = SNAKE_GATE_HEIGHT / original_height_calibration;
+  float princ_x = size_factor_height * 157.0f;
+  float princ_y = size_factor_height * 32.0f;
+  int f_fisheye = size_factor_height * 168.0f;
+  */
   
   //float psi_comp = stateGetNedToBodyEulers_f()->psi;
-  undistort_fisheye_point(side_1 ,princ_y,&undist_x,&undist_y,f_fisheye,1.150,princ_x,princ_y);
+  undistort_fisheye_point(side_1 ,princ_y,&undist_x,&undist_y,f_fisheye,k_fisheye,princ_x,princ_y);
   float side_angle_1 = atanf(undist_x/f_fisheye)+local_psi;
-  undistort_fisheye_point(side_2 ,princ_y,&undist_x,&undist_y,f_fisheye,1.150,princ_x,princ_y);
+  undistort_fisheye_point(side_2 ,princ_y,&undist_x,&undist_y,f_fisheye,k_fisheye,princ_x,princ_y);
   float side_angle_2 = atanf(undist_x/f_fisheye)+local_psi;
   
   float b = (tanf(side_angle_2)*tanf(side_angle_1))/((tanf(side_angle_1)-tanf(side_angle_2))*tanf(side_angle_1)); //tanf(side_angle_1)/(tanf(side_angle_2)-tanf(side_angle_1));
@@ -747,7 +753,6 @@ int closed_gate_processing(struct image_t *img){
 	  
 	
 	//Undistort fisheye points
-	float k_fisheye = 1.085;
 	float x_gate_corners[4];
 	float y_gate_corners[4];
 		
@@ -809,20 +814,20 @@ int closed_gate_processing(struct image_t *img){
 	  //debug_1 = (float)best_gate.x_corners[i];// best_gate.y_corners[i]
 	  //debug_2 = (float)best_gate.y_corners[i];//
 	  //undist_y = 5;//(float)best_gate.y_corners[i];
-	  float princ_x = 157.0;
-	  float princ_y = 32.0;
-	  undistort_fisheye_point(best_gate.x_corners[i] ,best_gate.y_corners[i],&undist_x,&undist_y,f_fisheye,k_fisheye,princ_x,princ_y);
+	  //float princ_x = 157.0;
+	  //float princ_y = 32.0;
+	  undistort_fisheye_point(best_gate.x_corners[i] ,best_gate.y_corners[i],&undist_x,&undist_y,f_fisheye,k_fisheye_2,princ_x,princ_y);
 	  
-	  x_gate_corners[i] = undist_x+157.0;
-	  y_gate_corners[i] = undist_y+32.0;
+	  x_gate_corners[i] = undist_x + princ_x;
+	  y_gate_corners[i] = undist_y + princ_y;
 	  
 	  if(gate_graphics)draw_cross(img,((int)x_gate_corners[i]),((int)y_gate_corners[i]),green_color);
 	  //if(gate_graphics)draw_cross(img,((int)x_trail[i])+157,((int)y_trail[i])+32,green_color);
 	  vec_from_point_ned(undist_x, undist_y, f_fisheye,&gate_vectors[i]);
 	  
 	  //Least squares stuff here:
-	  vec_from_point_2(undist_x,undist_y,168,&temp_vec);
-	  //vec_from_point_2(x_trail[i],y_trail[i],168,&temp_vec);
+	  vec_from_point_2(undist_x,undist_y,f_fisheye,&temp_vec);
+	  //vec_from_point_2(x_trail[i],y_trail[i],f_fisheye,&temp_vec);
 	  
 	  //camera to body rotation
 	  cam_body.phi = 0;
@@ -954,8 +959,8 @@ k = 1.085;
 
 */
   
-  float x_mid = (float)(point_x) - 157.0f;//-(float)(x_princip);
-  float y_mid = (float)(point_y) - 32.0f;//-(float)(y_princip);
+  float x_mid = (float)(point_x) - princ_x;//-(float)(x_princip);
+  float y_mid = (float)(point_y) - princ_y;//-(float)(y_princip);
   
   //debug_1 = x_mid;
   //debug_2 = y_mid;
@@ -978,7 +983,7 @@ k = 1.085;
   //k = 1.500;
   //////////
   //1.150 used in matlab
-  k = 1.150;
+  k = k_fisheye;
   //k = 1.218;
   
   //radial distortion correction
@@ -1022,7 +1027,7 @@ void vec_from_point_ned(float point_x, float point_y, int f, struct FloatVect3 *
 void vec_from_point_2(float point_x, float point_y, int f, struct FloatVect3 *vec)
 {
   
-  f = 168;
+  f = f_fisheye;
   float focus = (float)f;
   vec->x = 1.0;
   //printf("Print in point 1\n");
@@ -1058,13 +1063,13 @@ void back_proj_points(struct FloatVect3 *gate_point, struct FloatVect3 *cam_pos,
 //   debug_1 = hom_coord.x;
 //   debug_2 = hom_coord.y;
   
-  MAT33_ELMT(intr, 0, 0) = 168;//(row,column)
+  MAT33_ELMT(intr, 0, 0) = f_fisheye;//(row,column)
   MAT33_ELMT(intr, 0, 1) = 0;
-  MAT33_ELMT(intr, 0, 2) = 157;
+  MAT33_ELMT(intr, 0, 2) = (int) princ_x;
 
   MAT33_ELMT(intr, 1, 0) = 0;//(row,column)
-  MAT33_ELMT(intr, 1, 1) = 168;
-  MAT33_ELMT(intr, 1, 2) = 32;
+  MAT33_ELMT(intr, 1, 1) = f_fisheye;
+  MAT33_ELMT(intr, 1, 2) = (int) princ_y;
 
   MAT33_ELMT(intr, 2, 0) = 0;//(row,column)
   MAT33_ELMT(intr, 2, 1) = 0;
@@ -1196,7 +1201,7 @@ void draw_gate_color(struct image_t *im, struct gate_img gate, uint8_t* color)
 }
 
 //AXIS system
-//(0,0)   160
+//(0,0)   SNAKE_GATE_WIDTH
 //       Y
 // -|----->
 //  |
@@ -1205,7 +1210,7 @@ void draw_gate_color(struct image_t *im, struct gate_img gate, uint8_t* color)
 //  |
 //  \/
 // X
-//320
+// SNAKE_GATE_HEIGHT
 
 void draw_cross(struct image_t *im,int x, int y, uint8_t* color)
 {
