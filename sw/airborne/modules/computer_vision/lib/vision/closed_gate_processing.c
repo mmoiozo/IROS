@@ -48,15 +48,11 @@ int szx2 = 0;
 // int x = 0;
 // int y = 0;
 
-float original_height_calibration = 315.0f;
-float size_factor_height = SNAKE_GATE_HEIGHT / original_height_calibration;
-float princ_x = size_factor_height * 157.0f;
-float princ_y = size_factor_height * 32.0f;
-int f_fisheye = (int) (size_factor_height * 168.0f);
+
 // old settings:
-// float princ_x = 157.0f;
-// float princ_y = 32.0f;
-// int f_fisheye = 168;
+float princ_x = 157.0f;
+float princ_y = 32.0f;
+int f_fisheye = 168;
 float k_fisheye = 1.150;
 float k_fisheye_2 = 1.085;
 
@@ -170,7 +166,7 @@ int cmp_i(const void *a, const void *b){
 }
 
 
-void smooth_hist(int *smooth, int *raw_hist, int window, int im_width){
+void smooth_hist(int *smooth, int *raw_hist, int window){
   
   //start and end of hist padding
   for(int i = 0;i<window;i++){

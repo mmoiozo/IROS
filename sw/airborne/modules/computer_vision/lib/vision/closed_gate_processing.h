@@ -60,7 +60,7 @@ void back_proj_points(struct FloatVect3 *gate_point, struct FloatVect3 *cam_pos,
 float euclidean_distance(float x_i, float x_bp, float y_i, float y_bp);
 int find_minimum(float *error);
 
-void smooth_hist(int *smooth, int *raw_hist, int window, int im_width);
+void smooth_hist(int *smooth, int *raw_hist, int window);
 int find_max_hist(int *hist);
 int find_hist_peeks(float *hist,int *peeks);
 int find_hist_peeks_flat(int *hist,int *peeks);
