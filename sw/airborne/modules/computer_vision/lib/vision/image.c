@@ -156,17 +156,23 @@ uint16_t image_yuv422_colorfilt(struct image_t *input, struct image_t *output, u
   // Copy the creation timestamp (stays the same)
   output->ts = input->ts;
 
+  //float v_m_a = (float)v_m + (0.6f * (float) dest[1]);
+  //v_m_a = (v_m_a > 255.0) ? 255.0f: v_m_a;
+  //uint8_t v_m_adapt = (uint8_t) v_m_a;
+  
+  int x_step = 4;
+  int y_step = 4;
   // Go trough all the pixels
   for (uint16_t y = 0; y < output->h; y++) {
     for (uint16_t x = 0; x < output->w; x += 2) {
       // Check if the color is inside the specified values
-      if (
-        (dest[1] >= y_m)
-        && (dest[1] <= y_M)
-        && (dest[0] >= u_m)
-        && (dest[0] <= u_M)
-        && (dest[2] >= v_m)
-        && (dest[2] <= v_M)
+      if ( // y%y_step == 0 && x%x_step == 0 &&
+        (source[1] >= y_m)
+        && (source[1] <= y_M)
+        && (source[0] >= u_m)
+        && (source[0] <= u_M)
+        && (source[2] >= v_m)
+        && (source[2] <= v_M)
       ) {
         cnt ++;
         // UYVY
@@ -176,12 +182,8 @@ uint16_t image_yuv422_colorfilt(struct image_t *input, struct image_t *output, u
         dest[3] = source[3];  // Y
       } else {
         // UYVY
-        char u = source[0] - 127;
-        u /= 4;
         dest[0] = 127;        // U
         dest[1] = source[1];  // Y
-        u = source[2] - 127;
-        u /= 4;
         dest[2] = 127;        // V
         dest[3] = source[3];  // Y
       }
