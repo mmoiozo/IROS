@@ -24,6 +24,9 @@
 #include "math/pprz_algebra_float.h"
 #include "math/pprz_simple_matrix.h"
 
+#define REFINEMENT 0
+#define COLOR_FILTER 0
+
 // Gate detection settings:
 int n_samples = 10000;//10000;//2000;//1000;//500;
 int min_pixel_size = 55;//30;////30;//20;//40;//100;//TODO MAKE VARIABLE FOR CLIMBING TURN??///////////////////////////////////////////////!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -332,7 +335,8 @@ int closed_gate_processing(struct image_t *img){
     
 //     image_yuv422_set_color(img,img,x,y);
 
-    if(check_color(img, x, y)){ //image_yuv422_set_color(img,img,x,y);;
+    if(check_color(img, x, y)){ 
+      image_yuv422_set_color(img,img,x,y);;
     //check_color(img, 1, 1);
     // check if it has the right color
       
@@ -443,7 +447,7 @@ int closed_gate_processing(struct image_t *img){
   repeat_gate = 0;
 
   // do an additional fit to improve the gate detection:
-  if ((best_quality > min_gate_quality && n_gates > 0)||last_frame_detection) {// NO REFINEMENT FOR NOW !!///////////////////////////////
+  if (REFINEMENT && ((best_quality > min_gate_quality && n_gates > 0)||last_frame_detection)) {// NO REFINEMENT FOR NOW !!///////////////////////////////
 
 
       int max_candidate_gates = 10;//10;
@@ -620,7 +624,7 @@ int closed_gate_processing(struct image_t *img){
   previous_best_gate.n_sides = best_gate.n_sides;
   
     //color filtered version of image for overlay and debugging
-  if (0){//filter) {
+  if (COLOR_FILTER){
     int num_color = image_yuv422_colorfilt(img, img,
                       color_lum_min, color_lum_max,
                       color_cb_min, color_cb_max,
