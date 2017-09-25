@@ -172,14 +172,17 @@ int check_color(struct image_t *im, int x, int y)
   // odd ones are uy
   // even ones are vy
 
+  float ca = (float) color_cr_min + (0.6 * (float) buf[1]);
+  ca = (ca >255) ? 255.0f : ca;
+  uint8_t color_cr_min_adapt = (uint8_t) ca; 
 
   if (
-    (buf[1] >= color_lum_min)
-    && (buf[1] <= color_lum_max)
-    && (buf[0] >= color_cb_min)
-    && (buf[0] <= color_cb_max)
-    && (buf[2] >= color_cr_min)
-    && (buf[2] <= color_cr_max)
+//     (buf[1] >= color_lum_min)
+//     && (buf[1] <= color_lum_max)
+//     && (buf[0] >= color_cb_min)
+//     && (buf[0] <= color_cb_max)
+    buf[2] >= color_cr_min
+    //&& (buf[2] <= color_cr_max)
   ) {
     // the pixel passes:
     return 1;
@@ -232,9 +235,9 @@ uint16_t image_yuv422_set_color(struct image_t *input, struct image_t *output, i
   source += x * (input->w) * 2 + y * 2;
   dest += x * (output->w) * 2 + y * 2;
   // UYVY
-  dest[0] = 65;//211;        // U//was 65
+  dest[0] = 211;        // U//was 65
   dest[1] = source[1];  // Y
-  dest[2] = 255;//60;        // V//was 255
+  dest[2] = 60;        // V//was 255
   dest[3] = source[3];  // Y
   return 1;
 }
@@ -305,7 +308,7 @@ void snake_gate_periodic(void)
   if(race_state.flag_in_open_loop == TRUE || autopilot_mode == 4){
     last_open_loop_time = time_now;
     run_ekf = 0;
-    printf("open loop true %d !!!!!!!!!!!!!!!!!!!!!!!!\n",race_state.flag_in_open_loop );
+    //printf("open loop true %d !!!!!!!!!!!!!!!!!!!!!!!!\n",race_state.flag_in_open_loop );
   }else{
     run_ekf = 1;
   }
@@ -424,7 +427,7 @@ void snake_gate_periodic(void)
     debug_5 = 0;
   if(( vision_sample || hist_sample || ekf_sonar_update) && run_ekf && run_ekf_m && !isnan(ls_pos_x) && !isnan(ls_pos_y))
   {
-    printf("run ekf:%d run_ekf_m:%d vision_sample:%d \n",run_ekf,run_ekf_m,vision_sample);
+    //printf("run ekf:%d run_ekf_m:%d vision_sample:%d \n",run_ekf,run_ekf_m,vision_sample);
     debug_5 = 1;
     //printf("x pos=%f y pos=%f\n",debug_1,debug_2);
    // printf("primitivr in use = %d; --------------------------------------\n",primitive_in_use);
@@ -487,20 +490,22 @@ struct image_t *snake_gate_detection_func(struct image_t *img)
     float o_y_p = 0;
     float o_z_p = 0;
     
-    int process_vision = 0;
+    int process_vision = 1;
     if(process_vision){
-	if(open_gate_processing(img,&o_x_p,&o_y_p,&o_z_p)){
+	if(0){//open_gate_processing(img,&o_x_p,&o_y_p,&o_z_p)){
 	    ls_pos_x = o_x_p;
 	    ls_pos_y = o_y_p;
       //       debug_1 = ls_pos_x;
       //       debug_2 = ls_pos_y;
 	    vision_sample = 1;
 	    //printf("position x=%.2f, y=%.2f, z=%.2f\n", o_x_p, o_y_p, o_z_p);
-	  }
-	}else{
-	closed_gate_processing(img);
+	  }else{
+// 	closed_gate_processing(img);
 	}
+    }
    }
+   
+   closed_gate_processing(img);
    //printf("position x=%.2f, y=%.2f, z=%.2f\n", ls_pos_x, ls_pos_y, ls_pos_x);
 
   return img;

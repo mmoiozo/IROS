@@ -25,7 +25,7 @@
 #include "math/pprz_simple_matrix.h"
 
 // Gate detection settings:
-int n_samples = 10000;//2000;//1000;//500;
+int n_samples = 10000;//10000;//2000;//1000;//500;
 int min_pixel_size = 55;//30;////30;//20;//40;//100;//TODO MAKE VARIABLE FOR CLIMBING TURN??///////////////////////////////////////////////!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 float min_gate_quality = 0.15;//0.2;
 float gate_thickness = 0;//0.05;//0.10;//
@@ -332,10 +332,12 @@ int closed_gate_processing(struct image_t *img){
     
 //     image_yuv422_set_color(img,img,x,y);
 
+    if(check_color(img, x, y)){ //image_yuv422_set_color(img,img,x,y);;
     //check_color(img, 1, 1);
     // check if it has the right color
-    if (check_color(img, x, y)) {
-      //image_yuv422_set_color(img,img,x,y);
+      
+      
+      
       //fill histogram
       histogram[x]++;
       
@@ -423,7 +425,7 @@ int closed_gate_processing(struct image_t *img){
   ////////////////////////////////////////////////////////////////////////
   for(int i = 0;i < n_gates;i++){
     /*printf("n_gates:%d\n",n_gates);*/
-    //draw_gate(img, gates_c[i]);
+    draw_gate(img, gates_c[i]);
   }
   /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -441,7 +443,7 @@ int closed_gate_processing(struct image_t *img){
   repeat_gate = 0;
 
   // do an additional fit to improve the gate detection:
-  if ((best_quality > min_gate_quality && n_gates > 0)||last_frame_detection) {
+  if ((best_quality > min_gate_quality && n_gates > 0)||last_frame_detection) {// NO REFINEMENT FOR NOW !!///////////////////////////////
 
 
       int max_candidate_gates = 10;//10;
@@ -904,7 +906,7 @@ int closed_gate_processing(struct image_t *img){
   }
 
 	//better principal point?
-	//draw_cross(img,158,32,green_color);
+ 	//draw_cross(img,158,32,green_color);
 return 1;	
 }
 

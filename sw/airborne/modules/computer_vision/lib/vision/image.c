@@ -182,10 +182,10 @@ uint16_t image_yuv422_colorfilt(struct image_t *input, struct image_t *output, u
         dest[3] = source[3];  // Y
       } else {
         // UYVY
-        dest[0] = 127;        // U
-        dest[1] = source[1];  // Y
-        dest[2] = 127;        // V
-        dest[3] = source[3];  // Y
+        dest[0] = source[2];        // U
+        dest[1] = source[2];  // Y
+        dest[2] = source[2];        // V
+        dest[3] = source[2];  // Y
       }
 
       // Go to the next 2 pixels
