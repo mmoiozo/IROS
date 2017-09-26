@@ -239,7 +239,16 @@ uint16_t image_yuv422_set_color(struct image_t *input, struct image_t *output, i
   return 1;
 }
 
+float cdw_x = 0;
+float cdw_y = 0;
+float cdw_vx = 0;
+float cdw_vy = 0;
+
+
 void initialize_EKF(){
+
+  cdw_x = cdw_y = cdw_vx = cdw_vy = 0.0f;
+
     X_int[0][0] = 0;
     X_int[1][0] = 0;
     X_int[2][0] = stateGetPositionNed_f()->z;
@@ -276,6 +285,11 @@ void init_next_open_gate(){
 //state filter in periodic loop
 void snake_gate_periodic(void)
 {
+  new_kalman_filter_written_during_the_competition();
+
+  return;
+
+
   gettimeofday(&stop, 0);
   double time_now = (double)(stop.tv_sec + stop.tv_usec / 1000000.0);
   EKF_dt = time_now - time_prev;
@@ -342,6 +356,13 @@ void snake_gate_periodic(void)
   if(X_int[6][0] > 2)X_int[6][0] = 2;//ymax
   if(X_int[6][0] < -2)X_int[6][0] = -2;//ymin
   
+
+  /////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////
+  // SEND STATES TO CONTROLLER
+
+
+
   kf_pos_x = X_int[0][0];
   kf_pos_y = X_int[1][0];
   kf_vel_x = X_int[2][0];
@@ -485,7 +506,51 @@ void snake_gate_periodic(void)
     vision_sample = 0;
   }
   
+
 }
+
+
+// CDW
+
+void new_kalman_filter_written_during_the_competition()
+{
+  static cdw_vision_count = 0;
+
+  cdw_vx =  sin(stateGetNedToBodyEulers_f()->theta) * 9.81f * 1.5f;
+
+  cdw_x += cdw_vx * 0.01f;
+  cdw_y += cdw_vy * 0.01f;
+
+  if (cdw_vision_count <= 0)
+  {
+    cdw_y = 0;
+    cdw_vy = 0;
+  }
+  else
+  {
+    cdw_vision_count --;
+  }
+
+  if(hist_sample) {
+    cdw_x = gate_dist_x - x_pos_hist;
+    cdw_y = y_pos_hist;
+    hist_sample = 0;
+    vision_sample = 0;
+    cdw_vision_count = 10;
+  } else if (vision_sample) {
+    cdw_x = ls_pos_x;
+    cdw_y = ls_pos_y;
+    vision_sample = 0;
+    cdw_vision_count = 10;
+  }
+
+
+  kf_pos_x = cdw_x;
+  kf_pos_y = cdw_y;
+  kf_vel_x = cdw_vx;
+  kf_vel_y = cdw_vy;
+}
+
 
 // Function
 // Samples from the image and checks if the pixel is the right color.
