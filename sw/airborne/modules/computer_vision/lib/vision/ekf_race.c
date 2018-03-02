@@ -66,8 +66,20 @@ void EKF_init(void){
   
   init_eye_7(eye_7);
   
-  float P_k_1_diag[7] = {1,1,1,1,1,1,1};
-  EKF_init_diag(P_k_1_k_1_d,P_k_1_diag);
+  //No init during trail
+//   float P_k_1_diag[7] = {1,1,1,1,1,1,1};
+//   EKF_init_diag(P_k_1_k_1_d,P_k_1_diag);
+  
+  MAT_PRINT(7, 7,P_k_1_k_1_d);
+    for(int i = 0; i < 4; i++)//should be 3
+    {
+      P_k_1_k_1_d[i][i] = 1.0f;
+    }
+    for(int i = 4; i < 7; i++)
+    {
+      P_k_1_k_1_d[i][i] = 0.0f;
+    }
+  MAT_PRINT(7, 7,P_k_1_k_1_d);
   
   //check  process noise of biases---------------------------------
   float Q_diag[7] = {0.2,0.2,0.1,4.2,0,0,0};
@@ -75,16 +87,27 @@ void EKF_init(void){
   EKF_init_diag(Q,Q_diag);
   
   //Trail solution matlab
-//   float X_[7][1] = {{0}};
-//   float z_k_d[3];
-//   float EKF_m_dt = 0.067;
-//   z_k_d[0] = 0.1;
-//   z_k_d[1] = 0.1;
-//   z_k_d[2] = 0.1;
-//   EKF_update_state(X_,X_,z_k_d,EKF_m_dt);
-//   
-//   while(1){
-//   }
+  float X_[7][1] ={
+    {1.0000},
+    {1.0000},
+    {1.0000},
+    {0.2000},
+    {-0.1000},
+    {0.1000},
+    {0.1200}};
+  
+  
+  float z_k_d[3];
+  float EKF_m_dt = 0.7;
+  z_k_d[0] = 10.1;
+  z_k_d[1] = 0.9;
+  z_k_d[2] = 1.1;
+  MAT_PRINT(7, 1,X_);
+  EKF_update_state(X_,X_,z_k_d,EKF_m_dt,0);
+  MAT_PRINT(7, 1,X_);
+  
+  while(1){
+  }
   
 }
 
@@ -175,12 +198,21 @@ void EKF_update_state(float x_state[7][1],float x_opt[7][1], float z_k_d[3], flo
 // 
 //         P_k_1_k_1 = (eye(7) - K*DHx) * P_k_1 * (eye(7) - K*DHx)' + K*R_k*K';
 
-  float phi_s = stateGetNedToBodyEulers_f()->phi;
-  float theta_s = stateGetNedToBodyEulers_f()->theta;
-  float psi_s = 0; // stateGetNedToBodyEulers_f()->psi;
+//   float phi_s = stateGetNedToBodyEulers_f()->phi;
+//   float theta_s = stateGetNedToBodyEulers_f()->theta;
+//   float psi_s = 0; // stateGetNedToBodyEulers_f()->psi;
+//   
+//   float p_s = stateGetBodyRates_f()->p;
+//   float q_s = stateGetBodyRates_f()->q;
   
-  float p_s = stateGetBodyRates_f()->p;
-  float q_s = stateGetBodyRates_f()->q;
+  //TRAIL
+  float phi_s = 0.1;//stateGetNedToBodyEulers_f()->phi;
+  float theta_s = 0.1;//stateGetNedToBodyEulers_f()->theta;
+  float psi_s = 0.1; // stateGetNedToBodyEulers_f()->psi;
+  
+  float p_s = 0.1;//stateGetBodyRates_f()->p;
+  float q_s = 0.1;//stateGetBodyRates_f()->q;
+  
   
   //adapt DHx if only using sonar
   if(sonar_only){
@@ -202,11 +234,11 @@ void EKF_update_state(float x_state[7][1],float x_opt[7][1], float z_k_d[3], flo
   //jacobian
   EKF_evaluate_jacobian(DFx,phi_s,theta_s,psi_s,q_s,p_s);
 
-  //MAT_PRINT(7, 7,DFx);
+  MAT_PRINT(7, 7,DFx);
   //discretize the system
   c_2_d(Phi_d, DFx,EKF_delta);
 
-//  MAT_PRINT(7, 7,Phi_d);
+  MAT_PRINT(7, 7,Phi_d);
   
   //P_k_1 = Phi*P_k_1_k_1*Phi' + Q
   //temp_m_1=P_k_1_k_1*Phi'
@@ -216,7 +248,7 @@ void EKF_update_state(float x_state[7][1],float x_opt[7][1], float z_k_d[3], flo
   //P_k_1_d=temp_m_2 + Q
    MAT_SUM(7, 7, P_k_1_d,temp_m_2, Q);
   
-  // MAT_PRINT(7, 7,P_k_1_d);
+   MAT_PRINT(7, 7,P_k_1_d);
   
   //K = P_k_1 * DHx' / (DHx*P_k_1 * DHx' + R_k);
   //temp_7_3_1=P_k_1 * DHx' 
@@ -230,7 +262,7 @@ void EKF_update_state(float x_state[7][1],float x_opt[7][1], float z_k_d[3], flo
   //K_d=temp_7_3_1*temp_3_3_1
   MAT_MUL(7,3,3, K_d, temp_7_3_1, temp_3_3_1);
   
-  //MAT_PRINT(7, 3,K_d);
+  MAT_PRINT(7, 3,K_d);
   
   //X_opt = x_kk_1' + K * (z_k - X_int(n,1:3))';
   //EKF_inn=z_k - X_int(n,1:3)
@@ -243,7 +275,7 @@ void EKF_update_state(float x_state[7][1],float x_opt[7][1], float z_k_d[3], flo
   MAT_SUM(7, 1, x_opt, x_state, temp_7_1_1);
   //x_opt[4][0] = 0;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BLOCK X ACC BIAS
   //MAT_PRINT(3, 1,EKF_inn);
-  //MAT_PRINT(7, 1,x_opt);
+//   MAT_PRINT(7, 1,x_opt);
   
   //P_k_1_k_1 = (eye(7) - K*DHx) * P_k_1 * (eye(7) - K*DHx)' + K*R_k*K';
   MAT_MUL(7, 3, 7, temp_m_1, K_d,DHx);
