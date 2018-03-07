@@ -70,16 +70,16 @@ void EKF_init(void){
 //   float P_k_1_diag[7] = {1,1,1,1,1,1,1};
 //   EKF_init_diag(P_k_1_k_1_d,P_k_1_diag);
   
-  MAT_PRINT(7, 7,P_k_1_k_1_d);
-    for(int i = 0; i < 4; i++)//should be 3
-    {
-      P_k_1_k_1_d[i][i] = 1.0f;
-    }
-    for(int i = 4; i < 7; i++)
-    {
-      P_k_1_k_1_d[i][i] = 0.0f;
-    }
-  MAT_PRINT(7, 7,P_k_1_k_1_d);
+//   MAT_PRINT(7, 7,P_k_1_k_1_d);
+//     for(int i = 0; i < 4; i++)//should be 3
+//     {
+//       P_k_1_k_1_d[i][i] = 1.0f;
+//     }
+//     for(int i = 4; i < 7; i++)
+//     {
+//       P_k_1_k_1_d[i][i] = 0.0f;
+//     }
+//   MAT_PRINT(7, 7,P_k_1_k_1_d);
   
   //check  process noise of biases---------------------------------
   float Q_diag[7] = {0.2,0.2,0.1,4.2,0,0,0};
@@ -88,23 +88,37 @@ void EKF_init(void){
   
   //Trail solution matlab
   float X_[7][1] ={
-    {1.0000},
-    {1.0000},
-    {1.0000},
-    {0.2000},
+     {1.0000},
+     {2.0000},
+    {-1.5000},
+    {-0.5000},
     {-0.1000},
-    {0.1000},
-    {0.1200}};
-  
-  
-  float z_k_d[3];
-  float EKF_m_dt = 0.7;
-  z_k_d[0] = 10.1;
-  z_k_d[1] = 0.9;
-  z_k_d[2] = 1.1;
-  MAT_PRINT(7, 1,X_);
-  EKF_update_state(X_,X_,z_k_d,EKF_m_dt,0);
-  MAT_PRINT(7, 1,X_);
+     {0.2000},
+    {-0.1500}};
+    
+  float U_[8][1] ={
+     {-0.5000},
+      {0.1000},
+    {-10.0000},
+      {0.5000},
+     {-0.2000},
+      {0.0100},
+     {-0.0800},
+      {0.0000}};
+    
+    float EKF_dt = 0.002;
+    float X_dot[7][1] = {{0}};
+    
+  EKF_propagate_state(X_dot,X_,X_,EKF_dt,U_);
+
+//   float z_k_d[3];
+//   float EKF_m_dt = 0.7;
+//   z_k_d[0] = 10.1;
+//   z_k_d[1] = 0.9;
+//   z_k_d[2] = 1.1;
+//   MAT_PRINT(7, 1,X_);
+//   EKF_update_state(X_,X_,z_k_d,EKF_m_dt,0);
+//   MAT_PRINT(7, 1,X_);
   
   while(1){
   }
@@ -170,6 +184,12 @@ void EKF_propagate_state(float xdot[7][1], float x_prev[7][1], float new_state[7
 
   //new_state = curr_state + xdot*dt
   MAT_SUM_c(7,1, new_state, x_prev, xdot,dt);
+  
+  int show_mat_p = 1;
+  if(show_mat_p)MAT_PRINT(7, 1,x_prev);
+  if(show_mat_p)MAT_PRINT(7, 1,new_state);
+  if(show_mat_p)MAT_PRINT(7, 1,xdot);
+  if(show_mat_p)MAT_PRINT(8, 1,u_k);
   
 }
 
